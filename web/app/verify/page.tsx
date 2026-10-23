@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SiteFooter, REPO, PageHero } from "@/components/Site";
 import { ROLLCALL, ROLLCALL_V1, ROLLCALL_V2, TEST_DOLLAR, HOUSE, PROVIDER, FUNDER, ARBITER, addrUrl, EXPLORER } from "@/lib/chain";
 import { GAS_ROWS, YEAR_GAS } from "@/lib/gas";
+import archive from "@/lib/archive.json";
 import { mainnetPrices } from "@/lib/server/prices";
 
 export const metadata: Metadata = {
@@ -132,6 +133,56 @@ FROM \`measurement-lab.ndt.ndt7\`
 WHERE date BETWEEN "2026-10-23" AND CURRENT_DATE()
   AND id IN UNNEST(@rollcall_test_ids)`}</pre>
           </div>
+        </section>
+
+        <section id="archive" className="mt-14">
+          <h2 className="text-[28px] font-semibold">Our readings, checked against M-Lab’s archive</h2>
+          {(() => {
+            const rows = Object.entries(archive.readings as Record<string, any>);
+            if (!archive.checkedAt || rows.length === 0)
+              return (
+                <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+                  M-Lab loads each day into BigQuery about two days later, so the first real readings (October 23) can be checked
+                  from about October 25. The script that does it is in the repository (<code>web/scripts/archive-check.mjs</code>); its
+                  results will appear here, reading by reading.
+                </p>
+              );
+            const found = rows.filter(([, r]) => r.found).length;
+            return (
+              <>
+                <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-muted">
+                  {found} of {rows.length} real readings found in M-Lab’s own records, last checked {new Date(archive.checkedAt).toUTCString()}.
+                  A reading missing here may simply not be loaded yet (M-Lab runs about two days behind).
+                </p>
+                <div className="thin-scroll mt-5 overflow-x-auto rounded-2xl border border-line">
+                  <table className="w-full min-w-[720px] text-left text-[14px]">
+                    <thead className="bg-ink-wash/50 text-[12px] text-muted">
+                      <tr>
+                        <th className="px-4 py-2.5 font-semibold">Test id</th>
+                        <th className="px-4 py-2.5 font-semibold">Term</th>
+                        <th className="px-4 py-2.5 text-right font-semibold">Signed down</th>
+                        <th className="px-4 py-2.5 text-right font-semibold">M-Lab down</th>
+                        <th className="px-4 py-2.5 font-semibold">Network</th>
+                        <th className="px-4 py-2.5 font-semibold">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-sheet">
+                      {rows.map(([id, r]) => (
+                        <tr key={id} className="border-t border-line">
+                          <td className="max-w-[260px] truncate px-4 py-2 font-mono text-[12px]">{id.split("|")[0]}</td>
+                          <td className="px-4 py-2 tnum">{r.termId}</td>
+                          <td className="px-4 py-2 text-right tnum">{Number(r.signedMbps).toFixed(1)} Mbps</td>
+                          <td className="px-4 py-2 text-right tnum">{r.found ? `${Number(r.archiveMbps).toFixed(1)} Mbps` : "—"}</td>
+                          <td className="px-4 py-2">{r.found ? (r.archiveAsn === r.signedAsn ? `AS${r.signedAsn}, matches` : `AS${r.signedAsn} signed, AS${r.archiveAsn} in archive`) : `AS${r.signedAsn}`}</td>
+                          <td className={`px-4 py-2 font-semibold ${r.found ? "text-paid" : "text-faint"}`}>{r.found ? "found" : "not loaded yet"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
         </section>
 
         <section className="mt-14">

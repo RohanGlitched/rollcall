@@ -3,6 +3,7 @@ import { SiteHeader, SiteFooter, REPO } from "@/components/Site";
 import { OverviewProvider, LiveRegister, MoneyStrip, VisitorTerms, ProbeZeroRow, LatestReal, type Overview } from "@/components/LiveRegister";
 import { SchoolStories } from "@/components/Stories";
 import { CableSection } from "@/components/CableSection";
+import { CountedNotChecked } from "@/components/Udise";
 import { overview } from "@/lib/server/reads";
 import { ROLLCALL, addrUrl } from "@/lib/chain";
 
@@ -91,7 +92,7 @@ export default async function Home() {
               />
               <dl className="mt-10 grid gap-x-8 gap-y-8 sm:grid-cols-3">
                 {[
-                  { n: "96.7%", t: "of 2.26 lakh village councils marked service ready" },
+                  { n: "96.7%", t: "of 226,000 village councils marked service ready" },
                   { n: "33.2%", t: "of those connections actually operational" },
                   { n: "17 days", t: "average to restore a fibre fault; cuts caused 48% of downtime" },
                 ].map((x) => (
@@ -115,6 +116,21 @@ export default async function Home() {
                 One hundred village connections as fibres in a cable, seen end-on. Ninety-seven are laid. Thirty-two carry light.
               </figcaption>
             </figure>
+          </div>
+          <div className="mt-20 grid gap-10 border-t border-line pt-12 lg:grid-cols-[1fr_1.3fr] lg:items-center">
+            <div>
+              <h3 className="text-[30px] leading-[1.08] font-bold">Nobody counts whether school internet works.</h3>
+              <p className="mt-4 text-[17px] leading-relaxed text-muted">
+                India’s school census records whether 1.47 million schools have electricity, water, toilets and computers, and
+                whether each of them works. For internet it records only whether a connection exists.
+              </p>
+              <Link href="/why" className="mt-5 inline-block text-[15px] font-semibold text-ink underline decoration-2 underline-offset-4">
+                The state-by-state picture
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-line bg-sheet p-5 sm:p-7">
+              <CountedNotChecked />
+            </div>
           </div>
           <div className="mt-16 grid gap-10 border-t border-line pt-10 md:grid-cols-2">
             <p className="text-[18px] leading-relaxed">

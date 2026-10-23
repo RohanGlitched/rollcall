@@ -20,7 +20,9 @@ Built for **Web3 for Social Good 2026** (Singapore Management University, GSR Fo
 
 ## Why
 
-India’s auditor (CAG Report No. 19 of 2026, performance audit of BharatNet) found the village fibre network **marked service ready in 96.7% of 2.26 lakh village councils, but operational in only 33.2% of those**. Fibre faults took **17 days** on average to restore and caused 48% of downtime ([The Policy Edge’s summary](https://www.policyedge.in/p/bharatnet-faces-major-operational-gaps-despite-near-complete-rural-fibre-coverage)). Where a private operator ran the line under a maintenance contract, 90.1% worked; where a central public-sector company did, 10.7% did.
+India’s auditor (CAG Report No. 19 of 2026, performance audit of BharatNet) found the village fibre network **marked service ready in 96.7% of 226,000 village councils, but operational in only 33.2% of those**. Fibre faults took **17 days** on average to restore and caused 48% of downtime ([The Policy Edge’s summary](https://www.policyedge.in/p/bharatnet-faces-major-operational-gaps-despite-near-complete-rural-fibre-coverage)). Where a private operator ran the line under a maintenance contract, 90.1% worked; where a central public-sector company did, 10.7% did.
+
+India’s school census has the same blind spot. UDISE+ 2024-25 (Ministry of Education, Table 2.5) records, for 1.47 million schools, whether each has electricity, water, toilets and computers **and whether each of them works**. For internet it records only whether a connection exists: 934,000 schools have one, and **how many of those work on a school day is not recorded anywhere** ([table](https://educationforallinindia.com/wp-content/uploads/2025/10/State-wise-share-of-schools-by-facilities-UDISEPlus-2024-25-Ministry-of-Education.pdf)). Roll Call is that missing column, produced by the school itself, every school day, in a form a payment can follow.
 
 Schools live with the same gap: a connection is paid for when it is installed or when a month ends, and nobody in the school can say “it was down all week” in a way a payment system will hear. Roll Call makes the school’s own measurement the payment trigger.
 

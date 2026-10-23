@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter, PageHero } from "@/components/Site";
+import { CountedNotChecked, StateStrands } from "@/components/Udise";
 
 export const metadata: Metadata = {
   title: "Why pay by the working day",
@@ -33,6 +34,32 @@ export default function Why() {
       <main className="mx-auto max-w-[1280px] px-4 pt-6 sm:px-8">
 
         <div className="mt-10">
+          <Block title="India counts working toilets, not working internet">
+            <p>
+              Every year UDISE+, the Ministry of Education’s census of all 1.47 million schools, records whether each school has
+              electricity, water, toilets and computers, and separately whether each of them works. For internet it records
+              one thing: whether the school has a connection. 934,000 schools do. How many of those connections work on a
+              given school day is not recorded anywhere.
+            </p>
+            <div className="rounded-2xl border border-line bg-sheet p-5 sm:p-7">
+              <CountedNotChecked />
+            </div>
+            <p>
+              Roll Call is that missing column, produced by the school itself, every school day, in a form a payment can follow.
+            </p>
+          </Block>
+
+          <section className="border-t border-line py-12">
+            <h2 className="max-w-3xl text-[30px] leading-[1.08] font-bold">Connections laid, state by state. Light unknown.</h2>
+            <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-muted">
+              From West Bengal’s 19% to Andhra Pradesh’s 99%, the share of schools with a connection varies five-fold. The share
+              that works is not known in any state.
+            </p>
+            <div className="mt-8">
+              <StateStrands />
+            </div>
+          </section>
+
           <Block title="The same fibre, very different results">
             <p>
               India’s auditor found BharatNet’s village connections working in 33.2% of the places marked service ready. The

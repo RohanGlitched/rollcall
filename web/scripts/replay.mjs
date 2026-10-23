@@ -78,12 +78,15 @@ for (let i = 0; i < SCHOOLS.length; i++) {
 
 const posted = new Set();
 const challenged = new Set();
+// a term the funder ended takes no more readings, and one stale reading would revert the whole batch
+const ended = new Set();
 const end = start + DAYS * DAY + LATE + CHALLENGE * 2 + 30;
 while (Math.floor(Date.now() / 1000) < end) {
   const now = Math.floor(Date.now() / 1000);
   const batch = [];
   for (let i = 0; i < SCHOOLS.length; i++) {
     const s = SCHOOLS[i], id = ids[i];
+    if (ended.has(id)) continue;
     const day = Math.floor((now - start) / DAY);
     for (let d = Math.max(0, day - 1); d <= Math.min(day, DAYS - 1); d++) {
       if (now >= start + (d + 1) * DAY + LATE - 2) continue;
@@ -106,17 +109,24 @@ while (Math.floor(Date.now() / 1000) < end) {
       }
     }
   }
+  const recordAll = (list) => send(house, "record", [list.map((b) => b.r), list.map((b) => b.sig), list.map((b) => b.asn), list.map((b) => b.id)]);
   if (batch.length) {
     try {
-      await send(house, "record", [batch.map((b) => b.r), batch.map((b) => b.sig), batch.map((b) => b.asn), batch.map((b) => b.id)]);
+      await recordAll(batch);
       console.log(new Date().toISOString().slice(11, 19), "recorded", batch.length);
-    } catch (e) { console.log("record failed", e.shortMessage || e.message); }
+    } catch (e) {
+      // one bad reading must not cost the other schools theirs: fall back to one at a time
+      console.log("batch failed, one at a time:", e.shortMessage || e.message);
+      for (const b of batch) {
+        try { await recordAll([b]); console.log("recorded", b.id); } catch (e2) { console.log("record failed", b.id, e2.shortMessage || e2.message); }
+      }
+    }
   }
   // state of every replay term
   const res = await pub.multicall({ contracts: ids.flatMap((id) => [{ address: RC, abi: rollCallAbi, functionName: "state", args: [BigInt(id)] }, { address: RC, abi: rollCallAbi, functionName: "register", args: [BigInt(id)] }]), allowFailure: false });
   for (let i = 0; i < SCHOOLS.length; i++) {
     const id = ids[i], st = res[i * 2], reg = res[i * 2 + 1];
-    if (st.ended) continue;
+    if (st.ended) { ended.add(id); continue; }
     // the fake day: the funder challenges once it ends, the arbiter upholds
     for (let d = 0; d < DAYS; d++) {
       if (SCHOOLS[i].script(d) !== "fake" || challenged.has(`${id}:${d}`)) continue;
@@ -137,7 +147,7 @@ while (Math.floor(Date.now() / 1000) < end) {
       } catch (e) { console.log("settle", id, e.shortMessage || e.message); }
       const after = await pub.readContract({ address: RC, abi: rollCallAbi, functionName: "state", args: [BigInt(id)] });
       if (!after.ended && Number(after.strikes) >= 5) {
-        try { await send(funder, "terminate", [BigInt(id)]); console.log(SCHOOLS[i].key, "term ended by the funder"); } catch {}
+        try { await send(funder, "terminate", [BigInt(id)]); ended.add(id); console.log(SCHOOLS[i].key, "term ended by the funder"); } catch {}
       }
     }
   }

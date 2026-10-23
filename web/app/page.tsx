@@ -218,6 +218,45 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* ------------------------------------------------------- real school */}
+        <section id="real" className="mx-auto mt-32 max-w-[1280px] px-4 sm:px-8">
+          <Head
+            title="Run it at a real school today"
+            lede="Nothing above is a mock-up. A school, a funder and a provider can run a term on the same contract with their own keys."
+          />
+          <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl bg-line md:grid-cols-3">
+            {[
+              {
+                h: "The school starts a probe",
+                p: "Any computer that stays on in the school opens the probe kit. It makes a key, tests once in each part of the day, and signs offline reports when the line is down.",
+                href: "/probe",
+                cta: "Open the probe kit",
+              },
+              {
+                h: "The funder opens a term",
+                p: "With any browser wallet: the probe’s address, the provider, the arbiter, what a working day means, the money. Test dollars come from a built-in faucet.",
+                href: "/open",
+                cta: "Open a term",
+              },
+              {
+                h: "The provider accepts",
+                p: "From its own wallet on the term page, posting its bond. From then on each day settles itself, and every term prints a statement for funders who pay in their own currency.",
+                href: "/terms",
+                cta: "See every term",
+              },
+            ].map((x, i) => (
+              <li key={x.h} className="flex flex-col bg-sheet p-7">
+                <span className="text-[13px] font-semibold text-paid">Step {i + 1}</span>
+                <h3 className="mt-1 text-[24px] leading-tight font-bold">{x.h}</h3>
+                <p className="mt-3 flex-1 text-[15.5px] leading-relaxed text-muted">{x.p}</p>
+                <Link href={x.href} className="mt-5 text-[15px] font-semibold text-ink underline decoration-2 underline-offset-4">
+                  {x.cta}
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         {/* ------------------------------------------------------------ trust */}
         <section id="trust" className="mx-auto mt-32 max-w-[1280px] px-4 sm:px-8">
           <Head title="Who has to agree before money moves" lede="No single party can pay itself. Each role is a separate key, and the contract refuses any term where one key holds two roles." />

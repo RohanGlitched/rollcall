@@ -55,8 +55,9 @@ export function FunderConsole() {
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
 
   useEffect(() => {
-    const ts = nextMidnightIst();
-    setF((x) => ({ ...x, start: new Date(ts * 1000).toISOString().slice(0, 16) }));
+    // datetime-local wants the visitor's local wall time
+    const d = new Date(nextMidnightIst() * 1000);
+    setF((x) => ({ ...x, start: new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16) }));
   }, []);
 
   // name the network as the funder types its number

@@ -99,6 +99,35 @@ export default function Why() {
             </div>
           </section>
 
+          <Block title="Not only India">
+            <p>
+              The gap between a connected school and a working one is not Indian. Giga, the UNICEF and ITU initiative to connect
+              every school, built Giga Meter because the same question has no answer elsewhere either; its open-source app runs
+              M-Lab’s ndt7 test, the protocol Roll Call uses, in schools across dozens of countries (
+              <a className="underline" href="https://meter.giga.global/">meter.giga.global</a>).
+            </p>
+            <p>
+              Roll Call can read Giga Meter readings as its probe without changing the contract: each Giga Meter test already has
+              an M-Lab test id and runs from inside the school. What it adds is the payment rule and the public register.
+            </p>
+          </Block>
+
+          <Block title="Who adopts it first">
+            <ol className="list-decimal space-y-2 pl-5">
+              <li>
+                <b>Donors, CSR programmes and NGOs</b> that fund school connections today and already report outcomes. They can pay
+                in stablecoins and use the register as their report from day one.
+              </li>
+              <li>
+                <b>Giga-style programmes</b> that measure schools with M-Lab already, adding payment to measurement.
+              </li>
+              <li>
+                <b>Governments last.</b> A universal service fund that cannot hold stablecoins can still run Roll Call in register mode:
+                the same terms, readings and marks on chain, with its treasury paying in rupees what the register says each month.
+              </li>
+            </ol>
+          </Block>
+
           <Block title="Who would pay through it">
             <ul className="list-disc space-y-2 pl-5">
               <li>
@@ -129,8 +158,7 @@ export default function Why() {
               Running one school for a year takes about 70 million gas on Base, priced live on{" "}
               <Link className="text-ink underline" href="/verify">the verify page</Link>. The cost that matters is the
               attester: an organisation that checks networks and stands behind its word. It can be paid a small fee per
-              settled day by the funder, which is still far cheaper than the money a funder recovers from one week of
-              silent days.
+              settled day by the funder; the calculator above shows how large the money it protects is next to that fee.
             </p>
             <p>
               A probe can be any computer that is already in the school: a lab PC, the headteacher’s phone on the school

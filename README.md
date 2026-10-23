@@ -4,8 +4,8 @@
 
 <p align="center">
   <a href="https://rollcall-schools.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/live-rollcall--schools.vercel.app-0c1a22?style=flat-square"></a>
-  <a href="https://base-sepolia.blockscout.com/address/0x6b5fa7F9bD52D8162bF61D329ca167C5CF069dd5"><img alt="Contract" src="https://img.shields.io/badge/contract-Base%20Sepolia%2C%20verified-1d5fd0?style=flat-square"></a>
-  <img alt="Tests" src="https://img.shields.io/badge/forge%20tests-33%20passing-2fcb74?style=flat-square">
+  <a href="https://base-sepolia.blockscout.com/address/0x27500043Bf3A8ae3405264412C2D4D43E8744150"><img alt="Contract" src="https://img.shields.io/badge/contract-Base%20Sepolia%2C%20verified-1d5fd0?style=flat-square"></a>
+  <img alt="Tests" src="https://img.shields.io/badge/forge%20tests-39%20passing-2fcb74?style=flat-square">
   <img alt="Speed tests" src="https://img.shields.io/badge/speed%20tests-M--Lab%20ndt7-ff8a2a?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-9fb2c2?style=flat-square">
 </p>
@@ -61,42 +61,51 @@ sequenceDiagram
     C->>F: settle: the rest returned
 ```
 
+A school day is split into `required` equal parts; only the first pass in each part counts, so a line that works for half an hour cannot earn a whole day by retrying.
+
 | Mark | When | Money |
 |---|---|---|
-| Present | at least `required` passing tests | full day to the provider |
-| Partial | some passing tests | that share to the provider, rest to the funder |
-| Absent | tests ran, none passed (slow, or over another network) | back to the funder, strike |
-| Silent | no test arrived | back to the funder, strike |
-| Closed | school signed “closed today” before the day ended | back to the funder, no strike |
+| Present | a passing test in every part of the day | full day to the provider |
+| Partial | passing tests in some parts | that share to the provider, rest to the funder |
+| Absent | the probe reported (tests failed, ran over another network, or signed “offline”) and nothing passed | back to the funder, strike |
+| Silent | nothing reported at all (device off, power cut) | back to the funder, no strike |
+| Closed | school signed “closed today” before any test that day | back to the funder, no strike |
 | Voided | funder’s challenge upheld by the arbiter | back to the funder, strike, bond cut |
 
-After `strikeLimit` strikes in a row the funder may end the term: unserved days come back with a slice of the bond.
+A challenge stakes a deposit (lost to the provider if it fails) and lapses if the arbiter stays silent, so nobody can freeze a term. After `strikeLimit` strikes in a row the funder may end the term: unserved days come back with a slice of the bond, but any finished day with a passing test settles first. The contract refuses a term where one key holds two roles (funder, provider, probe, attester, arbiter).
 
 ## Contracts (Base Sepolia, verified)
 
 | Contract | Address |
 |---|---|
-| Roll Call | [`0x6b5fa7F9bD52D8162bF61D329ca167C5CF069dd5`](https://base-sepolia.blockscout.com/address/0x6b5fa7F9bD52D8162bF61D329ca167C5CF069dd5) |
+| Roll Call v2 | [`0x27500043Bf3A8ae3405264412C2D4D43E8744150`](https://base-sepolia.blockscout.com/address/0x27500043Bf3A8ae3405264412C2D4D43E8744150) |
 | Test dollar (tUSD, no value) | [`0xA6F6e6Bb1Bc46a54635a417Fc8d601B39BaB3762`](https://base-sepolia.blockscout.com/address/0xA6F6e6Bb1Bc46a54635a417Fc8d601B39BaB3762) |
-| House (funder, attester, arbiter for demo terms) | [`0x629239c5b7B7e6E78944DFd8f4D519161BbA79d9`](https://base-sepolia.blockscout.com/address/0x629239c5b7B7e6E78944DFd8f4D519161BbA79d9) |
+| Attester (records readings, settles, pays visitors’ gas) | [`0x629239c5b7B7e6E78944DFd8f4D519161BbA79d9`](https://base-sepolia.blockscout.com/address/0x629239c5b7B7e6E78944DFd8f4D519161BbA79d9) |
+| Funder | [`0xb582FBB0b36365dED379f6B9Bc9AC6f2de4A304B`](https://base-sepolia.blockscout.com/address/0xb582FBB0b36365dED379f6B9Bc9AC6f2de4A304B) |
+| Arbiter | [`0xf7ADb15eb48085a35Efb1eb04c946bE4D20e5AcD`](https://base-sepolia.blockscout.com/address/0xf7ADb15eb48085a35Efb1eb04c946bE4D20e5AcD) |
 | Demo provider | [`0x0E82E9f33e83a3be2895b9Fe68b75A735790fD4b`](https://base-sepolia.blockscout.com/address/0x0E82E9f33e83a3be2895b9Fe68b75A735790fD4b) |
+| Roll Call v1 (retired) | [`0x6b5fa7F9bD52D8162bF61D329ca167C5CF069dd5`](https://base-sepolia.blockscout.com/address/0x6b5fa7F9bD52D8162bF61D329ca167C5CF069dd5) |
+
+v1 was replaced the same day after an audit and a mock judging panel found that a funder could end a term before earned days settled, a closure could erase a pass, retrying in one half-hour could earn a full day, one key could hold two roles, and an unresolved challenge could freeze a term. Every one of those is now a test.
 
 ## Guarantees and the tests that check them
 
 | Guarantee | Test (`contracts/test/RollCall.t.sol`) |
 |---|---|
 | The whole term is locked up front | `test_open_locks_the_whole_term` |
+| No key may hold two roles | `test_no_key_may_hold_two_roles` |
 | Only the school’s probe key can sign readings | `test_reading_signed_by_another_key_is_rejected` |
 | The attester cannot change a signed number | `test_tampered_reading_is_rejected` |
-| A reading names the M-Lab test it came from | `test_test_id_must_match_the_mlab_uuid` |
-| One test counts once, ever | `test_one_test_cannot_be_counted_twice` |
+| Only the term’s attester records | `test_only_the_terms_attester_records` |
+| A reading names the M-Lab tests it came from; each counts once, ever | `test_test_id_must_match_the_mlab_uuid`, `test_one_test_cannot_be_counted_twice` |
 | A test over another network earns nothing | `test_reading_over_another_network_does_not_count` |
-| No late backfill, no future-dated readings | `test_late_reading_is_rejected`, `test_future_reading_is_rejected` |
-| Partial days pay pro rata | `test_partial_day_pays_pro_rata_and_refunds_the_rest` |
-| Silence is refunded and counted as a strike | `test_silent_day_is_refunded_and_struck` |
-| Closures must come before the day ends, signed by the probe | `test_day_cannot_be_closed_after_it_ends`, `test_closure_needs_the_probe_signature` |
-| Challenges void days and cut bonds | `test_upheld_challenge_voids_the_day_and_slashes` |
-| Repeated outages end the term | `test_terminate_after_strike_limit_returns_unserved_days` |
+| Retrying inside one part of the day cannot earn a full day | `test_retrying_inside_one_slot_cannot_earn_a_full_day` |
+| A dead line (offline reports) is Absent; a dead device is Silent, with no strike | `test_offline_report_makes_the_day_absent_not_silent`, `test_silent_day_is_refunded_without_a_strike` |
+| No backfill, no future-dated readings | `test_late_reading_is_rejected_at_the_settle_boundary`, `test_future_reading_is_rejected` |
+| Failing floods are capped, a needed pass never is | `test_cap_stops_failing_floods_but_never_a_needed_pass` |
+| Closures only before any test, signed by the probe, never twice | `test_a_day_with_readings_cannot_be_closed`, `test_closure_needs_the_probe_signature`, `test_a_closure_cannot_be_replayed` |
+| Challenges: upheld voids and slashes, rejected pays the provider the deposit, silence lapses | `test_upheld_challenge_voids_the_day_slashes_and_returns_the_deposit`, `test_rejected_challenge_pays_as_measured_and_the_deposit_goes_to_the_provider`, `test_a_silent_arbiter_lets_the_challenge_lapse` |
+| Repeated absence ends the term, but earned days are paid first | `test_terminate_after_strike_limit_returns_unserved_days`, `test_terminate_waits_until_earned_days_are_settled` |
 | Money is never created or lost (500 random terms) | `testFuzz_money_is_conserved` |
 
 ```bash
@@ -107,17 +116,17 @@ cd contracts && forge test
 
 | Action | Gas |
 |---|---|
-| Open a term | 237,850 |
-| Accept a term | 74,602 |
-| Record one reading | 93,651 |
-| Settle one school day | 88,756 |
+| Open a term | 265,179 |
+| Accept a term | 75,419 |
+| Record one reading | 97,494 |
+| Settle one school day | about 89,000 |
 
 A school for a year (200 school days, four readings a day batched daily) is about 70 million gas. The [verify page](https://rollcall-schools.vercel.app/verify) prices it live at Base mainnet’s gas price.
 
 ## Repository
 
 ```
-contracts/   Solidity (Foundry): RollCall.sol, TestDollar.sol, 33 tests, deploy script
+contracts/   Solidity (Foundry): RollCall.sol, TestDollar.sol, 39 tests, deploy script
 web/         Next.js 16 app: live register, Be the school, term pages, attester API, keeper
 web/lib/ndt7.ts          a small ndt7 client (browser and Node 22), speeds from M-Lab's server-side TCPInfo
 web/app/api/reading      the attester: probe signature, M-Lab id and host, network check, record on chain
@@ -137,12 +146,12 @@ npm run dev   # http://localhost:3240
 ## Trust model and limits
 
 - **The probe** signs what it measured; its key lives in the school (here: in the visitor’s browser storage).
-- **The attester** vouches only for the network a test ran over, and refuses readings sent from a different network than the one M-Lab saw. In this demo one key is the attester; the design calls for a quorum of independent attesters.
+- **The attester** vouches only for the network a test ran over, and refuses readings sent from a different network than the one M-Lab saw. Each term names its own attester; the next step is a quorum of independent attesters. In this demo the four role keys are separate but held by one server.
 - **Speeds are what M-Lab’s server counted**, as reported by the probe. Only M-Lab’s public archive proves they were not edited before signing, which is why the funder has a challenge window.
 - **A school colluding with its provider** can still run tests elsewhere on the same network. The archive check, site visits and the bond are the funder’s tools.
 - **Test dollars only.** Real terms would use a stablecoin, with a regulated on- and off-ramp for the funder.
 
-M-Lab publishes every test it serves, including the client address, in its open archive. Roll Call writes only a hash of the address on chain.
+M-Lab publishes every test it serves, including the client address, in its open archive, and visitors agree to that before testing. Roll Call writes only a salted hash of the address on chain.
 
 ## Roadmap
 

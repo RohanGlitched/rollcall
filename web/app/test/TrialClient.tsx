@@ -368,7 +368,7 @@ export function TrialClient() {
         <div className="rounded-2xl border border-line bg-sheet p-6 sm:p-8">
           <h2 className="text-[24px] font-semibold">Open a term for your school</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-muted">
-            The house plays the funder and the provider. It locks {usd(TRIAL.rate * BigInt(TRIAL.numDays), 0)} test dollars for{" "}
+            Demo keys play the funder, the provider, the attester and the arbiter: four separate keys, as the contract requires. The funder locks {usd(TRIAL.rate * BigInt(TRIAL.numDays), 0)} test dollars for{" "}
             {TRIAL.numDays} school days of {TRIAL.dayLength / 60} minutes each, and the provider posts a {usd(TRIAL.bond, 0)} tUSD bond.
             A day is paid when one test passes: at least {TRIAL.sla.minDownKbps / 1000} Mbps down, {TRIAL.sla.minUpKbps / 1000} Mbps up,
             and under {TRIAL.sla.maxRttMs} ms round trip, over the contracted network.
@@ -437,7 +437,7 @@ export function TrialClient() {
           </ol>
           <p className="rounded-md border border-rule bg-sheet p-4 text-[13px] text-muted">
             M-Lab publishes every test it runs, including the address it ran from, in its open archive, which is what lets
-            a funder audit a reading. Roll Call writes only a hash of your address on chain.
+            a funder audit a reading. Roll Call writes only a salted hash of your address on chain.
           </p>
         </div>
       </div>

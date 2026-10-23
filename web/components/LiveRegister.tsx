@@ -7,7 +7,16 @@ import { Strands, StrandLegend } from "./Strands";
 import { SIM_SCHOOLS, REAL_PROBE_NAME } from "@/lib/schools";
 import { currentDay, usd, ago } from "@/lib/days";
 
-export type Overview = { terms: TermView[]; totals: { terms: number; trials: number }; at: number };
+import type { ReadingView } from "@/lib/server/reads";
+import { mbps } from "@/lib/days";
+import { txUrl } from "@/lib/chain";
+
+export type Overview = {
+  terms: TermView[];
+  totals: { terms: number; trials: number };
+  latestReal?: (ReadingView & { school: string }) | null;
+  at: number;
+};
 
 function usePoll(initial: Overview | null, everyMs = 15_000) {
   const [data, setData] = useState<Overview | null>(initial);
@@ -155,6 +164,40 @@ export function ProbeZeroRow() {
   return (
     <div className="duct rounded-2xl p-5 sm:p-7">
       <Strands terms={[shown]} now={now} tone="duct" />
+    </div>
+  );
+}
+
+export function LatestReal() {
+  const { data, now } = useOverview();
+  const r = data?.latestReal;
+  if (!r) return null;
+  return (
+    <div className="duct mt-12 grid gap-6 rounded-2xl p-6 sm:p-8 lg:grid-cols-[1fr_2fr] lg:items-center">
+      <div>
+        <p className="text-[13px] text-glass-muted">The latest real reading on chain, {ago(now - r.takenAt)} ago</p>
+        <p className="mt-1 text-[20px] font-semibold text-glass">{r.school}, day {r.day + 1}</p>
+        <p className="mt-2 text-[13px] text-glass-muted">
+          <span className="break-all">{r.testId}</span>
+        </p>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-5">
+        {[
+          ["Download", `${mbps(r.downKbps)} Mbps`],
+          ["Upload", `${mbps(r.upKbps)} Mbps`],
+          ["Round trip", `${r.rttMs} ms`],
+          ["Network", `AS${r.asn}`],
+          ["Result", r.pass ? "passed" : "failed"],
+        ].map(([k, v]) => (
+          <div key={k}>
+            <dt className="text-[12px] text-glass-muted">{k}</dt>
+            <dd className={`mt-1 font-display text-[22px] font-bold tracking-[-0.02em] tnum ${k === "Result" ? (r.pass ? "text-[#8fe0b0]" : "text-[#ff8a80]") : "text-glass"}`}>{v}</dd>
+          </div>
+        ))}
+        <a href={txUrl(r.tx)} className="col-span-full text-[13px] text-glass underline decoration-glass/40 underline-offset-4 hover:decoration-glass sm:col-span-5">
+          See the transaction that recorded it
+        </a>
+      </dl>
     </div>
   );
 }

@@ -322,6 +322,34 @@ export function overview() {
     const ids = [...latestBySchool.values(), ...recentTrials];
     const terms = await readTerms(ids);
     const totals = { terms: names.size, trials: trials.length };
-    return { terms, totals, at: Math.floor(Date.now() / 1000) };
+    const latestReal = await latestRealReading().catch(() => null);
+    return { terms, totals, latestReal, at: Math.floor(Date.now() / 1000) };
   });
+}
+
+/** The newest reading that came from a real M-Lab test (not a simulated school). */
+export async function latestRealReading(): Promise<(ReadingView & { school: string }) | null> {
+  const logs = await getLogs(topic0("ReadingRecorded"));
+  const names = await termNames();
+  for (let i = logs.length - 1; i >= 0 && i >= logs.length - 400; i--) {
+    const l = logs[i];
+    const d = decodeEventLog({ abi: rollCallAbi, eventName: "ReadingRecorded", topics: l.topics as any, data: l.data });
+    if (d.args.mlabTestId.startsWith("sim:")) continue;
+    const termId = Number(d.args.termId);
+    return {
+      termId,
+      day: Number(d.args.day),
+      takenAt: Number(d.args.takenAt),
+      downKbps: Number(d.args.downKbps),
+      upKbps: Number(d.args.upKbps),
+      rttMs: Number(d.args.rttMs),
+      asn: Number(d.args.asn),
+      pass: d.args.pass,
+      testId: d.args.mlabTestId,
+      tx: l.transactionHash,
+      block: Number(l.blockNumber),
+      school: names.get(termId)?.school ?? `Term ${termId}`,
+    };
+  }
+  return null;
 }

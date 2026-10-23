@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader, SiteFooter, REPO } from "@/components/Site";
+import { SiteFooter, REPO, PageHero } from "@/components/Site";
 import { ROLLCALL, addrUrl } from "@/lib/chain";
 
 export const metadata: Metadata = {
@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 
 function Rule({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <section className="grid gap-4 border-t border-rule py-10 md:grid-cols-[180px_1fr]">
+    <section className="grid gap-4 border-t border-rule py-10 md:grid-cols-[300px_1fr]">
       <div>
-        <span className="font-serif text-[15px] font-semibold text-margin tnum">Rule {n}</span>
-        <h2 className="mt-1 text-[24px] font-semibold leading-snug">{title}</h2>
+        <span className="text-[14px] font-semibold text-paid tnum">Rule {n}</span>
+        <h2 className="mt-1 text-[28px] font-bold leading-[1.1]">{title}</h2>
       </div>
       <div className="max-w-3xl space-y-4 text-[16px] leading-relaxed">{children}</div>
     </section>
@@ -25,16 +25,19 @@ const code = "rounded bg-ink-wash/70 px-1.5 py-0.5 font-mono text-[13.5px] text-
 export default function How() {
   return (
     <>
-      <SiteHeader />
-      <main className="mx-auto max-w-[1240px] px-4 pt-12 sm:px-6 sm:pt-16">
-        <h1 className="max-w-4xl text-[38px] font-semibold leading-[1.08] sm:text-[52px]">How a school day is decided</h1>
-        <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-muted">
-          These are the rules the contract enforces, in the order they apply. The contract is{" "}
-          <a className="text-ink underline" href={addrUrl(ROLLCALL)}>verified on Blockscout</a>, and every rule below is
-          covered by a test in <a className="text-ink underline" href={`${REPO}/blob/main/contracts/test/RollCall.t.sol`}>RollCall.t.sol</a>.
-        </p>
-
-        <div className="mt-12">
+      <PageHero
+        title="How a school day is decided"
+        lede={
+          <>
+            The rules the contract enforces, in the order they apply. The contract is{" "}
+            <a className="underline decoration-glass/40 underline-offset-4 hover:decoration-glass" href={addrUrl(ROLLCALL)}>verified on Blockscout</a>, and every
+            rule below is covered by a test in{" "}
+            <a className="underline decoration-glass/40 underline-offset-4 hover:decoration-glass" href={`${REPO}/blob/main/contracts/test/RollCall.t.sol`}>RollCall.t.sol</a>.
+          </>
+        }
+      />
+      <main className="mx-auto max-w-[1280px] px-4 pt-6 sm:px-8">
+        <div className="mt-6">
           <Rule n={1} title="A term is paid for up front">
             <p>
               The funder opens a term with the school’s probe key, the provider’s payout address, the contracted network,

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SiteHeader, SiteFooter, REPO } from "@/components/Site";
-import { OverviewProvider, LiveRegister, MoneyStrip, VisitorTerms, ProbeZeroRow, type Overview } from "@/components/LiveRegister";
+import { OverviewProvider, LiveRegister, MoneyStrip, VisitorTerms, ProbeZeroRow, LatestReal, type Overview } from "@/components/LiveRegister";
 import { SchoolStories } from "@/components/Stories";
 import { CableSection } from "@/components/CableSection";
 import { overview } from "@/lib/server/reads";
@@ -151,6 +151,7 @@ export default async function Home() {
               ))}
             </ol>
           </div>
+          <LatestReal />
           <p className="mt-10 text-[15px]">
             <Link href="/how" className="font-semibold text-ink underline decoration-2 underline-offset-4">
               Every rule the contract enforces

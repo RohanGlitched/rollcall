@@ -147,3 +147,23 @@ export function SiteFooter() {
     </footer>
   );
 }
+
+/** Dark duct header band shared by inner pages: header, title, lede, then the fibre stripe. */
+export function PageHero({ title, lede, kicker, children }: { title: React.ReactNode; lede?: React.ReactNode; kicker?: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="duct">
+      <SiteHeader tone="duct" />
+      <section className="mx-auto max-w-[1280px] px-4 pt-14 pb-14 sm:px-8 sm:pt-20">
+        {kicker && <p className="mb-4 text-[14px] text-glass-muted">{kicker}</p>}
+        <h1 className="max-w-5xl text-[44px] leading-[0.98] font-bold tracking-[-0.045em] text-glass sm:text-[72px]">{title}</h1>
+        {lede && <div className="mt-6 max-w-2xl text-[18px] leading-relaxed text-glass/80">{lede}</div>}
+        {children && <div className="mt-12">{children}</div>}
+      </section>
+      <div className="flex gap-[3px] px-0" aria-hidden>
+        {["#3d8bff", "#ff8a2a", "#2fcb74", "#c08a55", "#9fb2c2", "#a585ff"].map((c) => (
+          <span key={c} className="h-[3px] flex-1" style={{ background: c }} />
+        ))}
+      </div>
+    </div>
+  );
+}

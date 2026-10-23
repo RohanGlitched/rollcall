@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SiteHeader, SiteFooter, REPO } from "@/components/Site";
+import { SiteFooter, REPO, PageHero } from "@/components/Site";
 import { ROLLCALL, TEST_DOLLAR, HOUSE, PROVIDER, addrUrl, EXPLORER } from "@/lib/chain";
 import { GAS_ROWS, YEAR_GAS } from "@/lib/gas";
 import { mainnetPrices } from "@/lib/server/prices";
@@ -22,13 +22,11 @@ export default async function Verify({ searchParams }: { searchParams: Promise<{
   })();
   return (
     <>
-      <SiteHeader />
-      <main className="mx-auto max-w-[1240px] px-4 pt-12 sm:px-6 sm:pt-16">
-        <h1 className="max-w-4xl text-[38px] font-semibold leading-[1.08] sm:text-[52px]">Check it yourself</h1>
-        <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-muted">
-          Nothing on this site has to be taken on trust. The register is read from the contract, the contract’s source is
-          verified, and every real reading names an M-Lab test you can look up in M-Lab’s own archive.
-        </p>
+      <PageHero
+        title="Check it yourself"
+        lede="Nothing here has to be taken on trust. The register is read from the contract, the contract’s source is verified, and every real reading names an M-Lab test you can look up in M-Lab’s own archive."
+      />
+      <main className="mx-auto max-w-[1280px] px-4 pt-6 sm:px-8">
 
         {test && (
           <section className="mt-10 rounded-md border border-ink bg-ink-wash/40 p-6">

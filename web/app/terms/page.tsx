@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader, SiteFooter } from "@/components/Site";
+import { SiteFooter, PageHero } from "@/components/Site";
 import { termNames, readTerms } from "@/lib/server/reads";
 import { usd } from "@/lib/days";
 
@@ -13,12 +13,11 @@ export default async function Terms() {
   const terms = names ? await readTerms(ids).catch(() => []) : [];
   return (
     <>
-      <SiteHeader />
-      <main className="mx-auto max-w-[1240px] px-4 pt-12 sm:px-6 sm:pt-16">
-        <h1 className="text-[38px] font-semibold leading-[1.08] sm:text-[52px]">Every term on chain</h1>
-        <p className="mt-4 max-w-2xl text-[17px] text-muted">
-          Newest first{names ? `, ${names.size} in all` : ""}. Simulated schools reopen a term each time one ends; visitor terms come from Be the school.
-        </p>
+      <PageHero
+        title="Every term on chain"
+        lede={`Newest first${names ? `, ${names.size} in all` : ""}. Simulated schools open a new term each time one ends; visitor terms come from Be the school.`}
+      />
+      <main className="mx-auto max-w-[1280px] px-4 pt-6 sm:px-8">
         {!names ? (
           <p className="mt-10 text-[15px] text-red">The list could not be read just now. Try again in a minute.</p>
         ) : (

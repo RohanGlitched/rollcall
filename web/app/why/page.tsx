@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader, SiteFooter } from "@/components/Site";
+import { SiteFooter, PageHero } from "@/components/Site";
 
 export const metadata: Metadata = {
   title: "Why pay by the working day",
@@ -12,7 +12,7 @@ const AUDIT = "https://www.policyedge.in/p/bharatnet-faces-major-operational-gap
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="grid gap-4 border-t border-rule py-12 md:grid-cols-[300px_1fr]">
-      <h2 className="text-[26px] font-semibold leading-snug">{title}</h2>
+      <h2 className="text-[30px] font-bold leading-[1.08]">{title}</h2>
       <div className="max-w-3xl space-y-4 text-[16px] leading-relaxed">{children}</div>
     </section>
   );
@@ -26,13 +26,11 @@ export default function Why() {
   ];
   return (
     <>
-      <SiteHeader />
-      <main className="mx-auto max-w-[1240px] px-4 pt-12 sm:px-6 sm:pt-16">
-        <h1 className="max-w-4xl text-[38px] font-semibold leading-[1.08] sm:text-[52px]">Why pay by the working day</h1>
-        <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-muted">
-          A school that is “connected” on a map and offline in the classroom is the most common failure in school
-          connectivity. It is also the one no payment system notices.
-        </p>
+      <PageHero
+        title="Why pay by the working day"
+        lede="A school that is “connected” on a map and offline in the classroom is the most common failure in school connectivity. It is also the one no payment system notices."
+      />
+      <main className="mx-auto max-w-[1280px] px-4 pt-6 sm:px-8">
 
         <div className="mt-10">
           <Block title="The same fibre, very different results">

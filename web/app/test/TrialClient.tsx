@@ -343,7 +343,7 @@ export function TrialClient() {
           <fieldset className="mt-6 space-y-3">
             <legend className="text-[14px] font-semibold">Which line is this school paying for?</legend>
             <label className={`flex cursor-pointer gap-3 rounded-md border p-4 ${contract === "mine" ? "border-ink bg-ink-wash/50" : "border-rule"}`}>
-              <input type="radio" name="contract" className="mt-1 accent-[#0f1b24]" checked={contract === "mine"} onChange={() => setContract("mine")} />
+              <input type="radio" name="contract" className="mt-1 accent-[#0f1b24]" checked={contract === "mine"} onChange={() => setContract("mine")} aria-label="The network you are on" />
               <span>
                 <span className="block text-[15px] font-semibold">
                   {network?.holder ? `${network.holder} (AS${network.asn}), the network you are on` : "The network you are on"}
@@ -352,7 +352,7 @@ export function TrialClient() {
               </span>
             </label>
             <label className={`flex cursor-pointer gap-3 rounded-md border p-4 ${contract === "other" ? "border-ink bg-ink-wash/50" : "border-rule"}`}>
-              <input type="radio" name="contract" className="mt-1 accent-[#0f1b24]" checked={contract === "other"} onChange={() => setContract("other")} />
+              <input type="radio" name="contract" className="mt-1 accent-[#0f1b24]" checked={contract === "other"} onChange={() => setContract("other")} aria-label="Another provider" />
               <span>
                 <span className="block text-[15px] font-semibold">Another provider (AS64999)</span>
                 <span className="block text-[13px] text-muted">

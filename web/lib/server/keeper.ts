@@ -152,7 +152,9 @@ async function runSchool(school: SimSchool, idx: number, latest: TermView | unde
 async function settleAndEnd(term: TermView, now: number, log: Log) {
   if (!term.state.accepted || term.state.ended) return;
   const upTo = settleableUpTo(term.terms, now);
-  if (upTo >= term.state.nextToSettle) {
+  // simulated schools settle two days per transaction to halve the house's gas; the last day always settles
+  const batch = term.kind === "sim" && upTo < term.terms.numDays - 1 ? 1 : 0;
+  if (upTo >= term.state.nextToSettle + batch) {
     const next = term.days[term.state.nextToSettle];
     if (next?.challenged) return; // waits for the arbiter
     await settle(term.id, upTo);

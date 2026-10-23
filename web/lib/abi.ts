@@ -13,6 +13,19 @@ export const rollCallAbi = [
  },
  {
   "type": "function",
+  "name": "MAX_CLOSURE_DAYS",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
   "name": "MAX_READINGS_PER_DAY",
   "inputs": [],
   "outputs": [
@@ -75,7 +88,7 @@ export const rollCallAbi = [
  },
  {
   "type": "function",
-  "name": "closeDay",
+  "name": "closeDays",
   "inputs": [
    {
     "name": "termId",
@@ -83,7 +96,12 @@ export const rollCallAbi = [
     "internalType": "uint256"
    },
    {
-    "name": "day",
+    "name": "fromDay",
+    "type": "uint16",
+    "internalType": "uint16"
+   },
+   {
+    "name": "toDay",
     "type": "uint16",
     "internalType": "uint16"
    },
@@ -298,6 +316,11 @@ export const rollCallAbi = [
      },
      {
       "name": "dayLength",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "schoolHours",
       "type": "uint32",
       "internalType": "uint32"
      },
@@ -746,6 +769,11 @@ export const rollCallAbi = [
      },
      {
       "name": "dayLength",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "schoolHours",
       "type": "uint32",
       "internalType": "uint32"
      },

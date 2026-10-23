@@ -107,7 +107,15 @@ export async function POST(req: Request) {
   }
   // The device that ran the test must also be the one sending it, from the same network.
   const devLocal = !ip || isPrivate(ip);
-  if (!devLocal || process.env.NODE_ENV === "production") {
+  let note: string | undefined;
+  if (term.kind === "trial") {
+    // a visitor behind a VPN, iCloud Private Relay or a campus proxy still gets a day marked; the network
+    // M-Lab saw decides it. Real terms keep the strict check below.
+    try {
+      const sender = await networkOf(ip);
+      if (sender.asn !== testNet.asn) note = `Your reading was sent from AS${sender.asn} but the test ran over AS${testNet.asn} (a VPN or proxy splits the two). A visitor term records it anyway; a real school’s reading would be refused.`;
+    } catch {}
+  } else if (!devLocal || process.env.NODE_ENV === "production") {
     try {
       const sender = await networkOf(ip);
       if (sender.asn !== testNet.asn) {
@@ -129,7 +137,7 @@ export async function POST(req: Request) {
     const t = term.terms;
     const pass =
       testNet.asn === t.asn && b.downKbps >= t.minDownKbps && b.upKbps >= t.minUpKbps && b.rttMs <= t.maxRttMs;
-    return NextResponse.json({ tx, pass, asn: testNet.asn, holder: shortHolder(testNet.holder), day: Math.floor((b.takenAt - t.start) / t.dayLength) });
+    return NextResponse.json({ tx, pass, asn: testNet.asn, holder: shortHolder(testNet.holder), day: Math.floor((b.takenAt - t.start) / t.dayLength), note });
   } catch (e) {
     return NextResponse.json({ error: plainError(e) }, { status: 502 });
   }

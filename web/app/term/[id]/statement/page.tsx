@@ -104,7 +104,7 @@ export default async function Statement({ params }: { params: Promise<{ id: stri
                 {[
                   ["Contracted network", `AS${t.asn}`],
                   ["Pass bar", `${t.minDownKbps / 1000} Mbps down, ${t.minUpKbps / 1000} up, ≤ ${t.maxRttMs} ms`],
-                  ["Full day", t.required > 1 ? `a pass in each of ${t.required} parts` : "one passing test"],
+                  ["Full day", t.required > 1 ? `a pass in each of ${t.required} parts${t.schoolHours ? ` of ${t.schoolHours / 3600} school hours` : ""}` : "one passing test"],
                   ["Rate", `${usd(t.ratePerDay)} tUSD per school day`],
                   ["School days", `${t.numDays} from ${fmtDay(t.start, t.dayLength)}`],
                 ].map(([k, v]) => (

@@ -70,8 +70,9 @@ export default function How() {
               <span className={code}>ReadingRecorded</span> event.
             </p>
             <p>
-              The school day is divided into as many equal parts as the term requires passes, and only the first pass in each part
-              counts. A line that works for half an hour cannot earn a whole day by retrying.
+              The school’s opening hours each day are divided into as many equal parts as the term requires passes, and only the
+              first pass in each part counts. A line that works for half an hour cannot earn a whole day by retrying, and a probe
+              never has to test at night: a pass outside school hours counts for nothing.
             </p>
             <p>
               A day holds at most 24 failing readings, so a probe cannot flood a day, but a pass the day still needs is always accepted.
@@ -81,8 +82,10 @@ export default function How() {
           <Rule n={4} title="A probe that cannot get online says so">
             <p>
               When the line is dead the probe cannot reach M-Lab, so it signs an offline report instead, with zero speeds and a test
-              id that starts with <span className={code}>offline:</span>, and sends it when it can, inside the late window. That
-              makes the difference between a dead line and a dead device visible on chain.
+              id that starts with <span className={code}>offline:</span>. Because the line it would use is down, the report is meant
+              to travel another way, such as the headteacher’s phone on mobile data, and the contract accepts it until the day settles
+              (a test with speeds must arrive within the late window). That makes the difference between a dead line and a dead device
+              visible on chain, even in a cut that lasts weeks.
             </p>
           </Rule>
 
@@ -97,7 +100,7 @@ export default function How() {
           <Rule n={6} title="The mark decides the money">
             <ul className="space-y-2">
               <li><b className="text-paid">Present</b>: a pass in every part of the day. Paid in full.</li>
-              <li><b className="text-part">Partial</b>: passes in some parts. The provider gets that share; the rest goes back.</li>
+              <li><b className="text-part">Partial</b>: passes in some parts. The provider gets that share; the rest goes back. Fewer than half the parts is also a strike.</li>
               <li><b className="text-fault">Absent</b>: the probe reported (failed tests or offline reports) and nothing passed. Refunded, and a strike against the provider.</li>
               <li><b className="text-fault">Silent</b>: nothing reported at all, which is what a power cut or a switched-off device looks like. Refunded, no strike.</li>
               <li><b className="text-sleeve">Closed</b>: the school declared it before any test that day. Refunded, no strike.</li>
@@ -107,9 +110,9 @@ export default function How() {
 
           <Rule n={7} title="Only the school can close a day, and only before it tests">
             <p>
-              Holidays, exams and floods are not the provider’s fault. The probe key signs a closure with a reason. It is accepted
-              only while the day has no reading at all, so a closure can neither erase a failure the probe saw nor take back a pass
-              the provider earned, and the same closure cannot be sent twice.
+              Weekends, holidays, exams and floods are not the provider’s fault. The probe key signs a closure for a day or a run of up
+              to 31 days with a reason. It is accepted only while those days have not ended and have no reading at all, so a closure
+              can neither erase a failure the probe saw nor take back a pass the provider earned, and the same closure cannot be sent twice.
             </p>
           </Rule>
 
@@ -124,7 +127,8 @@ export default function How() {
 
           <Rule n={9} title="Repeated failure ends the term">
             <p>
-              Absent and voided days are strikes; a paid day resets the count; silent and closed days leave it alone. After the agreed
+              Absent days, voided days and days passing fewer than half their parts are strikes; a day passing at least half resets the
+              count; silent and closed days leave it alone. One weak pass a day cannot keep a failing line in a term forever. After the agreed
               number of strikes in a row, the funder can end the term: unserved days come back with a cut of the bond, the rest of the
               bond goes back to the provider. A finished day with any passing test must settle first, so a day the provider earned is
               always paid.

@@ -221,7 +221,7 @@ function Segment({
       body = <line x1={x0} x2={x1} y1={MID} y2={MID} stroke={color} strokeOpacity={0.28} strokeWidth={2} strokeDasharray="1 6" strokeLinecap="round" />;
   }
   return (
-    <g>
+    <g data-mark={s.kind}>
       {body}
       {hit}
     </g>

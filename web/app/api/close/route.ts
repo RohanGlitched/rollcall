@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   if (day.closed) return NextResponse.json({ error: "This day is already marked closed." }, { status: 400 });
   if (day.readings > 0) return NextResponse.json({ error: "This day already has a reading, so it can no longer be marked closed." }, { status: 400 });
   try {
-    const tx = await relayClose(b.termId, b.day, reason, b.sig);
+    const tx = await relayClose(b.termId, b.day, b.day, reason, b.sig);
     bust();
     return NextResponse.json({ tx });
   } catch (e) {

@@ -106,6 +106,7 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
                 ["Full pay for a day", t.required > 1 ? `a pass in each of ${t.required} equal parts of the day; fewer pays that share` : "one passing test"],
                 ["Pay per school day", `${usd(t.ratePerDay)} tUSD`],
                 ["School days", `${t.numDays}, each lasting ${dayLabel}`],
+                ["School hours", t.schoolHours ? `the first ${t.schoolHours / 3600} hours of each day; the parts divide these hours` : "the whole day"],
                 ["First day starts", fmtTime(t.start, t.dayLength)],
                 ["Late readings accepted for", `${t.lateWindow} s after a day ends`],
                 ["Funder may challenge for", `${t.challengeWindow} s after that`],
@@ -151,7 +152,12 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
           {events === null ? (
             <p className="mt-4 text-[14px] text-muted">The event history could not be read just now; the register above is current.</p>
           ) : events.length === 0 ? (
-            <p className="mt-4 text-[14px] text-muted">No day has settled yet. The first settles {ago(t.start + t.dayLength + t.lateWindow + t.challengeWindow - now)} from now.</p>
+            <p className="mt-4 text-[14px] text-muted">
+              No day has settled yet.{" "}
+              {now < t.start + t.dayLength + t.lateWindow + t.challengeWindow
+                ? `The first can settle in ${ago(t.start + t.dayLength + t.lateWindow + t.challengeWindow - now)}.`
+                : "The first can settle now; the keeper settles simulated schools two days at a time, so it may take up to an hour."}
+            </p>
           ) : (
             <ol className="mt-4 space-y-2">
               {[...events].reverse().slice(0, 40).map((e, i) => (

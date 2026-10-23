@@ -129,8 +129,12 @@ contract RollCallTest is Test {
     }
 
     function _closeSig(uint256 id, uint16 day, string memory reason) internal view returns (bytes memory) {
-        bytes32 typehash = keccak256("Closure(uint256 termId,uint16 day,string reason)");
-        bytes32 structHash = keccak256(abi.encode(typehash, id, day, keccak256(bytes(reason))));
+        return _closeRangeSig(id, day, day, reason);
+    }
+
+    function _closeRangeSig(uint256 id, uint16 fromDay, uint16 toDay, string memory reason) internal view returns (bytes memory) {
+        bytes32 typehash = keccak256("Closure(uint256 termId,uint16 fromDay,uint16 toDay,string reason)");
+        bytes32 structHash = keccak256(abi.encode(typehash, id, fromDay, toDay, keccak256(bytes(reason))));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", rc.domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(probeKey, digest);
         return abi.encodePacked(r, s, v);
@@ -416,7 +420,7 @@ contract RollCallTest is Test {
     function test_closed_day_refunds_without_a_strike() public {
         uint256 id = _open();
         vm.warp(_dayStart(0) - 600); // closed the evening before
-        rc.closeDay(id, 0, "Holiday", _closeSig(id, 0, "Holiday"));
+        rc.closeDays(id, 0, 0, "Holiday", _closeSig(id, 0, "Holiday"));
         vm.warp(_settleTime(0));
         rc.settle(id, 0);
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Closed));
@@ -428,22 +432,22 @@ contract RollCallTest is Test {
         _passSlots(id, 0, 1); // the provider earned a third of the day
         bytes memory sig = _closeSig(id, 0, "Power cut");
         vm.expectRevert(RollCall.DayHasReadings.selector);
-        rc.closeDay(id, 0, "Power cut", sig);
+        rc.closeDays(id, 0, 0, "Power cut", sig);
         // a failed reading also locks the day: closing cannot erase a failure the probe saw
         vm.warp(_dayStart(1) + 600);
         _post(id, uint64(block.timestamp), 1_000, ASN);
         sig = _closeSig(id, 1, "Power cut");
         vm.expectRevert(RollCall.DayHasReadings.selector);
-        rc.closeDay(id, 1, "Power cut", sig);
+        rc.closeDays(id, 1, 1, "Power cut", sig);
     }
 
     function test_a_closure_cannot_be_replayed() public {
         uint256 id = _open();
         vm.warp(_dayStart(0) + 60);
         bytes memory sig = _closeSig(id, 0, "Power cut");
-        rc.closeDay(id, 0, "Power cut", sig);
+        rc.closeDays(id, 0, 0, "Power cut", sig);
         vm.expectRevert(RollCall.AlreadyClosed.selector);
-        rc.closeDay(id, 0, "Power cut", sig);
+        rc.closeDays(id, 0, 0, "Power cut", sig);
     }
 
     function test_day_cannot_be_closed_after_it_ends() public {
@@ -451,7 +455,7 @@ contract RollCallTest is Test {
         vm.warp(_dayStart(1));
         bytes memory sig = _closeSig(id, 0, "Holiday");
         vm.expectRevert(RollCall.TooLate.selector);
-        rc.closeDay(id, 0, "Holiday", sig);
+        rc.closeDays(id, 0, 0, "Holiday", sig);
     }
 
     function test_closure_needs_the_probe_signature() public {
@@ -459,7 +463,7 @@ contract RollCallTest is Test {
         vm.warp(_dayStart(0) + 1 hours);
         bytes memory sig = _closeSig(id, 0, "Holiday");
         vm.expectRevert(RollCall.BadSignature.selector);
-        rc.closeDay(id, 0, "Exams", sig);
+        rc.closeDays(id, 0, 0, "Exams", sig);
     }
 
     function test_full_term_returns_bond_and_conserves_money() public {
@@ -620,7 +624,7 @@ contract RollCallTest is Test {
             uint256 x = uint256(keccak256(abi.encode(seed, d)));
             if (x % 7 == 0) {
                 vm.warp(_dayStart(d) - 60);
-                rc.closeDay(id, d, "Holiday", _closeSig(id, d, "Holiday"));
+                rc.closeDays(id, d, d, "Holiday", _closeSig(id, d, "Holiday"));
                 continue;
             }
             uint256 n = (x >> 8) % 6;
@@ -651,5 +655,90 @@ contract RollCallTest is Test {
         assertEq((usd.balanceOf(funder) - f0) + (usd.balanceOf(provider) - p0), uint256(RATE) * DAYS + 50e6);
         assertEq(uint256(st.paid) + st.refunded, uint256(RATE) * DAYS);
         assertLe(st.paid, uint256(RATE) * DAYS);
+    }
+
+    // ------------------------------------------------------------------ v3
+
+    function _openWith(RollCall.Terms memory t) internal returns (uint256 id) {
+        vm.prank(funder);
+        id = rc.open(t, "School with hours");
+        vm.prank(provider);
+        rc.accept(id);
+    }
+
+    function test_parts_divide_school_hours_and_passes_outside_them_do_not_count() public {
+        RollCall.Terms memory t = _terms();
+        t.schoolHours = 6 hours; // 3 parts of 2 hours each
+        uint256 id = _openWith(t);
+        // one pass in each 2-hour part of the school day
+        for (uint256 k; k < 3; ++k) {
+            uint64 at = _dayStart(0) + uint64(k * 2 hours + 600);
+            vm.warp(at);
+            _post(id, at, 30_000, ASN);
+        }
+        assertEq(rc.dayOf(id, 0).passes, 3);
+        // a pass at night, after school hours, earns nothing on the next day either
+        uint64 night = _dayStart(1) + 20 hours;
+        vm.warp(night);
+        _post(id, night, 30_000, ASN);
+        assertEq(rc.dayOf(id, 1).passes, 0);
+        assertEq(rc.dayOf(id, 1).readings, 1);
+    }
+
+    function test_offline_report_arrives_after_the_late_window_but_before_settling() public {
+        uint256 id = _open();
+        uint64 at = _dayStart(0) + 3 hours;
+        vm.warp(uint256(_dayStart(1)) + LATE + 1 hours); // a test would be too late now
+        string memory uuid = "offline:relayed-by-phone";
+        RollCall.Reading memory r = RollCall.Reading({termId: id, takenAt: at, downKbps: 0, upKbps: 0, rttMs: 0, testId: keccak256(bytes(uuid)), clientHash: bytes32(0)});
+        _postOne(r, _sign(probeKey, r), 0, uuid);
+        assertEq(rc.dayOf(id, 0).readings, 1);
+        // but never once the day can settle
+        vm.warp(_settleTime(0));
+        string memory uuid2 = "offline:too-late";
+        RollCall.Reading memory r2 = RollCall.Reading({termId: id, takenAt: at + 60, downKbps: 0, upKbps: 0, rttMs: 0, testId: keccak256(bytes(uuid2)), clientHash: bytes32(0)});
+        bytes memory sig2 = _sign(probeKey, r2);
+        vm.expectRevert(RollCall.TooLate.selector);
+        _postOne(r2, sig2, 0, uuid2);
+    }
+
+    function test_a_test_with_speeds_still_obeys_the_late_window() public {
+        uint256 id = _open();
+        uint64 at = _dayStart(0) + 3 hours;
+        vm.warp(uint256(_dayStart(1)) + LATE + 1 hours);
+        (RollCall.Reading memory r, string memory uuid) = _reading(id, at, 30_000);
+        bytes memory sig = _sign(probeKey, r);
+        vm.expectRevert(RollCall.TooLate.selector);
+        _postOne(r, sig, ASN, uuid);
+    }
+
+    function test_a_day_passing_fewer_than_half_its_parts_is_a_strike() public {
+        uint256 id = _open(); // three parts a day
+        for (uint16 d; d < 3; ++d) _passSlots(id, d, 1); // one part of three, every day
+        vm.warp(_settleTime(2));
+        rc.settle(id, 2);
+        assertEq(rc.state(id).strikes, 3);
+        assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Partial));
+        vm.prank(funder);
+        rc.terminate(id); // the weak line can be dropped, after being paid a third of each day
+        assertTrue(rc.state(id).ended);
+    }
+
+    function test_a_day_passing_half_or_more_resets_strikes() public {
+        uint256 id = _open();
+        _absent(id, 0);
+        _passSlots(id, 1, 2); // two parts of three
+        vm.warp(_settleTime(1));
+        rc.settle(id, 1);
+        assertEq(rc.state(id).strikes, 0);
+    }
+
+    function test_a_school_closes_a_whole_week_with_one_signature() public {
+        uint256 id = _open();
+        bytes memory sig = _closeRangeSig(id, 2, 6, "Diwali holidays");
+        rc.closeDays(id, 2, 6, "Diwali holidays", sig);
+        for (uint16 d = 2; d <= 6; ++d) assertTrue(rc.dayOf(id, d).closed);
+        vm.expectRevert(RollCall.AlreadyClosed.selector);
+        rc.closeDays(id, 2, 6, "Diwali holidays", sig);
     }
 }

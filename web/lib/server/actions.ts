@@ -13,6 +13,7 @@ export type OpenParams = {
   maxRttMs: number;
   start: number;
   dayLength: number;
+  schoolHours?: number;
   lateWindow: number;
   challengeWindow: number;
   numDays: number;
@@ -93,6 +94,7 @@ export async function openTerm(p: OpenParams): Promise<{ termId: number; openTx:
     maxRttMs: p.maxRttMs,
     start: BigInt(p.start),
     dayLength: p.dayLength,
+    schoolHours: p.schoolHours ?? 0,
     lateWindow: p.lateWindow,
     challengeWindow: p.challengeWindow,
     numDays: p.numDays,
@@ -170,7 +172,8 @@ const houseCall = (fn: string, args: readonly unknown[]) => call(houseAccount(),
 const funderCall = (fn: string, args: readonly unknown[]) => call(funderAccount(), fn, args);
 
 export const settle = (termId: number, upTo: number) => houseCall("settle", [BigInt(termId), upTo]);
-export const relayClose = (termId: number, day: number, reason: string, sig: Hex) => houseCall("closeDay", [BigInt(termId), day, reason, sig]);
+export const relayClose = (termId: number, fromDay: number, toDay: number, reason: string, sig: Hex) =>
+  houseCall("closeDays", [BigInt(termId), fromDay, toDay, reason, sig]);
 export const challenge = (termId: number, day: number, evidence: string) => funderCall("challenge", [BigInt(termId), day, evidence]);
 export const resolve = (termId: number, day: number, upheld: boolean) => call(arbiterAccount(), "resolve", [BigInt(termId), day, upheld]);
 export const terminate = (termId: number) => funderCall("terminate", [BigInt(termId)]);

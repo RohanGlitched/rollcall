@@ -24,6 +24,7 @@ export type TermView = {
     maxRttMs: number;
     start: number;
     dayLength: number;
+    schoolHours: number;
     lateWindow: number;
     challengeWindow: number;
     numDays: number;
@@ -188,6 +189,7 @@ function shapeTerm(id: number, school: string, tx: string | undefined, t: any, s
       maxRttMs: Number(t.maxRttMs),
       start: Number(t.start),
       dayLength: Number(t.dayLength),
+      schoolHours: Number(t.schoolHours),
       lateWindow: Number(t.lateWindow),
       challengeWindow: Number(t.challengeWindow),
       numDays: Number(t.numDays),
@@ -235,6 +237,7 @@ export async function readTerms(ids: number[]): Promise<TermView[]> {
   ids.forEach((id, i) => {
     const [t, s, r] = [res[i * 3], res[i * 3 + 1], res[i * 3 + 2]];
     if (t.status !== "success" || s.status !== "success" || r.status !== "success") return;
+    if (/^0x0{40}$/i.test((t.result as any).funder)) return; // no such term: the contract returns zeros
     const n = names.get(id);
     out.push(shapeTerm(id, n?.school ?? `Term ${id}`, n?.tx, t.result, s.result, r.result as any[]));
   });

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SiteFooter, REPO, PageHero } from "@/components/Site";
-import { ROLLCALL, ROLLCALL_V1, TEST_DOLLAR, HOUSE, PROVIDER, FUNDER, ARBITER, addrUrl, EXPLORER } from "@/lib/chain";
+import { ROLLCALL, ROLLCALL_V1, ROLLCALL_V2, TEST_DOLLAR, HOUSE, PROVIDER, FUNDER, ARBITER, addrUrl, EXPLORER } from "@/lib/chain";
 import { GAS_ROWS, YEAR_GAS } from "@/lib/gas";
 import { mainnetPrices } from "@/lib/server/prices";
 
@@ -54,13 +54,14 @@ WHERE date = "${day}"
             <table className="w-full text-left text-[15px]">
               <tbody className="bg-sheet">
                 {[
-                  ["Roll Call v2", ROLLCALL, "Terms, readings, day marks, payouts. Source verified."],
+                  ["Roll Call v3", ROLLCALL, "Terms, readings, day marks, payouts. Source verified on Sourcify (exact match)."],
                   ["Test dollar (tUSD)", TEST_DOLLAR, "6 decimals, minted by the attester key for the demo. No value."],
                   ["Attester", HOUSE, "Checks networks, records readings, settles days, relays closures; pays every visitor’s gas."],
                   ["Funder", FUNDER, "Opens demo terms, challenges suspicious days, ends terms after repeated absences."],
                   ["Arbiter", ARBITER, "Decides challenges."],
                   ["Provider", PROVIDER, "Receives payouts and posts bonds for demo terms."],
-                  ["Roll Call v1 (retired)", ROLLCALL_V1, "The first deployment, replaced the same day after an audit found that a funder could end a term before earned days settled, closures could erase passes, and one key could hold two roles."],
+                  ["Roll Call v2 (retired)", ROLLCALL_V2, "Replaced the same afternoon after a second review: parts of the day now divide school hours, offline reports reach the contract until the day settles, weak partial days are strikes, and closures cover a run of days."],
+                  ["Roll Call v1 (retired)", ROLLCALL_V1, "The first deployment, replaced the same morning after an audit found that a funder could end a term before earned days settled, closures could erase passes, retrying could earn a full day, and one key could hold two roles."],
                 ].map(([n, a, d]) => (
                   <tr key={n} className="border-t border-rule align-top first:border-t-0">
                     <th className="px-5 py-4 font-serif font-semibold">{n}</th>
@@ -95,7 +96,7 @@ cast call $RC "state(uint256)((uint128,uint128,uint128,uint128,uint128,uint16,ui
           <div>
             <h2 className="text-[28px] font-semibold">Run the contract’s tests</h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted">
-              39 tests, including a fuzz test over 500 random terms that checks no money is created or lost.
+              45 tests, including a fuzz test over 500 random terms that checks no money is created or lost.
             </p>
             <pre className={`${pre} mt-4`}>{`git clone ${REPO}
 cd rollcall/contracts

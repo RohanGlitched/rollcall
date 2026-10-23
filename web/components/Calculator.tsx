@@ -54,8 +54,8 @@ export function FunderCalculator() {
           <dd className="font-display text-[34px] leading-tight font-bold tracking-[-0.03em] text-fault tnum">${fmt(back)}</dd>
         </div>
         <p className="text-[12.5px] leading-snug text-muted">
-          Assumes {schoolDays} school days a year, with the monthly price spread over them. The same money can connect more schools,
-          or be held back until a provider makes its lines work. Illustrative only: enter your own numbers.
+          Assumes {schoolDays} school days a year, with the monthly price spread over them, and that providers keep the same price
+          when part of it is at risk; a provider may ask for more per working day. Illustrative only: enter your own numbers.
         </p>
       </dl>
     </div>

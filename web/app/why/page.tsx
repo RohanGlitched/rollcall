@@ -84,8 +84,9 @@ export default function Why() {
               </p>
             </div>
             <p>
-              Operators respond to what they are paid for. Roll Call makes the thing that is paid for the thing a school
-              needs: a working line on a school day, measured from inside the school.
+              These figures do not prove that the payment model caused the gap, but they show how much the way a network is run and
+              paid for can matter. Roll Call makes the thing that is paid for the thing a school needs: a working line on a school day,
+              measured from inside the school.
             </p>
           </Block>
 
@@ -107,8 +108,9 @@ export default function Why() {
               <a className="underline" href="https://meter.giga.global/">meter.giga.global</a>).
             </p>
             <p>
-              Roll Call can read Giga Meter readings as its probe without changing the contract: each Giga Meter test already has
-              an M-Lab test id and runs from inside the school. What it adds is the payment rule and the public register.
+              Roll Call could take Giga Meter’s readings with a small adapter on the school device that signs each Giga Meter result
+              (it already has an M-Lab test id and runs from inside the school) with the school’s probe key. What Roll Call adds is
+              the payment rule and the public register.
             </p>
           </Block>
 

@@ -60,6 +60,10 @@ export default async function Home() {
                 test. The provider is paid for the days the school was online over the line it was paid to run. Every other
                 day goes back to the funder.
               </p>
+              <p className="mt-4 rounded-xl border border-glass/15 bg-white/5 px-4 py-3 text-[14.5px] leading-relaxed text-glass/85">
+                Tuesday: a test passed in each part of school hours, so the provider is paid the day. Wednesday: the fibre is cut, so
+                Wednesday’s money goes back to the funder.
+              </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <Link href="/test" className="rounded-full bg-glass px-6 py-3 text-[15px] font-semibold text-duct hover:bg-white">
                   Be the school for three minutes
@@ -209,7 +213,7 @@ export default async function Home() {
             <div id="probe-zero">
               <Head
                 title="Two real probes keep the real calendar"
-                lede="Probe 0 is a server in a data centre, the easy case: four real M-Lab tests a day. Probe 1 is a laptop on a home broadband line, which goes off at night and on weekends: its silent days show what a real school device does. Both terms run on India time, starting at midnight."
+                lede="Probe 0 is a server in a data centre, the easy case: four real M-Lab tests a day. Probe 1 is a laptop on a home broadband line during school hours, which is off some days: its silent days show what a real school device does. Their days settle two days after they end, the challenge window a funder needs to check M-Lab’s archive, so their first marks appear on October 27."
               />
               <div className="mt-8">
                 <ProbeZeroRow />
@@ -314,7 +318,7 @@ export default async function Home() {
             <a className="underline" href="https://meter.giga.global/">
               Giga Meter
             </a>
-            , runs the same M-Lab ndt7 protocol as Roll Call, so Roll Call could read Giga Meter results instead of its own probe.
+            , runs the same M-Lab ndt7 protocol as Roll Call, so a small adapter on the school device could sign Giga Meter’s results with the school’s probe key instead of running a second test.
           </p>
         </section>
 

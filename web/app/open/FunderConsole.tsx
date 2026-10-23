@@ -9,10 +9,11 @@ import { connect, waitTx, walletError } from "@/lib/wallet";
 
 type Step = { label: string; state: "wait" | "run" | "done" | "fail"; note?: string; tx?: string };
 
-const nextMidnightIst = () => {
+/** Tomorrow at 09:00 India time, when a typical school opens. */
+const nextOpeningIst = () => {
   const now = Date.now() / 1000;
   const ist = 5.5 * 3600;
-  return Math.ceil((now + ist) / 86400) * 86400 - ist;
+  return Math.ceil((now + ist) / 86400) * 86400 - ist + 9 * 3600;
 };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -46,6 +47,7 @@ export function FunderConsole() {
     slash: "20",
     deposit: "3",
     strikes: "5",
+    hours: "7",
     start: "",
   });
   const [asnName, setAsnName] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export function FunderConsole() {
 
   useEffect(() => {
     // datetime-local wants the visitor's local wall time
-    const d = new Date(nextMidnightIst() * 1000);
+    const d = new Date(nextOpeningIst() * 1000);
     setF((x) => ({ ...x, start: new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16) }));
   }, []);
 
@@ -113,6 +115,7 @@ export function FunderConsole() {
     if (!Number(f.asn)) p.push("Enter the provider’s network number (ASN).");
     if (!(Number(f.days) >= 1 && Number(f.days) <= 400)) p.push("A term is 1 to 400 school days.");
     if (!(Number(f.parts) >= 1 && Number(f.parts) <= 24)) p.push("A day has 1 to 24 parts.");
+    if (!(Number(f.hours) > 0 && Number(f.hours) <= 24)) p.push("A school is open between 1 and 24 hours a day.");
     if (Number(f.slash) > Number(f.bond)) p.push("The bond cut cannot be larger than the bond.");
     if (!f.school.trim()) p.push("Name the school.");
     if (new Date(f.start).getTime() / 1000 < Date.now() / 1000 + 120) p.push("Start at least two minutes from now, so the provider has time to accept.");
@@ -153,6 +156,7 @@ export function FunderConsole() {
         maxRttMs: Number(f.rtt),
         start: BigInt(Math.floor(new Date(f.start).getTime() / 1000)),
         dayLength: 86400,
+        schoolHours: Math.round(Number(f.hours) * 3600),
         lateWindow: 3600,
         challengeWindow: 2 * 86400,
         numDays: Number(f.days),
@@ -253,8 +257,11 @@ export function FunderConsole() {
             <Field label="School days">
               <input className={input} value={f.days} onChange={set("days")} inputMode="numeric" />
             </Field>
-            <Field label="First day starts">
+            <Field label="School opens on the first day" hint="Every later day starts at the same time.">
               <input className={input} type="datetime-local" value={f.start} onChange={set("start")} />
+            </Field>
+            <Field label="Hours the school is open" hint="The parts of the day divide these hours.">
+              <input className={input} value={f.hours} onChange={set("hours")} inputMode="decimal" />
             </Field>
           </div>
         </section>

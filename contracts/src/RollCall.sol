@@ -22,8 +22,10 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 ///   - the arbiter decides challenges; if it stays silent the challenge lapses.
 /// Each reading names its M-Lab tests, so anyone can check it against M-Lab's public archive.
 ///
-/// A school day is split into `required` equal slots. A day is paid in full only when a test passed in
-/// every slot, so a line that works for half an hour cannot earn a whole day by retrying.
+/// A school day's opening hours are split into `required` equal parts. A day is paid in full only when a
+/// test passed in every part, so a line that works for half an hour cannot earn a whole day by retrying.
+/// When the line is dead the probe signs "offline" reports (zero speeds, no network); they can reach the
+/// contract until the day settles, relayed from any other connection, such as a phone on mobile data.
 contract RollCall is EIP712 {
     using SafeERC20 for IERC20;
 
@@ -51,6 +53,7 @@ contract RollCall is EIP712 {
         uint32 maxRttMs;
         uint64 start; //        unix time the first school day starts
         uint32 dayLength; //    seconds per school day (86400 on a real term)
+        uint32 schoolHours; //  seconds from the start of each day that the school is open (0 = the whole day)
         uint32 lateWindow; //   seconds after a day ends that its readings may still arrive
         uint32 challengeWindow; // seconds after the late window before the day can settle
         uint16 numDays;
@@ -70,7 +73,7 @@ contract RollCall is EIP712 {
         uint128 slashed; //     bond taken from the provider and paid to the funder
         uint16 settledDays;
         uint16 nextToSettle; // days settle in order so strikes are counted honestly
-        uint8 strikes; //       current run of absent or voided days
+        uint8 strikes; //       current run of failing days (absent, voided, or fewer than half the parts)
         bool accepted;
         bool ended;
     }
@@ -102,7 +105,8 @@ contract RollCall is EIP712 {
     bytes32 private constant READING_TYPEHASH = keccak256(
         "Reading(uint256 termId,uint64 takenAt,uint32 downKbps,uint32 upKbps,uint32 rttMs,bytes32 testId,bytes32 clientHash)"
     );
-    bytes32 private constant CLOSURE_TYPEHASH = keccak256("Closure(uint256 termId,uint16 day,string reason)");
+    bytes32 private constant CLOSURE_TYPEHASH = keccak256("Closure(uint256 termId,uint16 fromDay,uint16 toDay,string reason)");
+    uint16 public constant MAX_CLOSURE_DAYS = 31;
 
     uint8 public constant MAX_READINGS_PER_DAY = 24;
     uint8 public constant MAX_SLOTS = 24;
@@ -163,7 +167,7 @@ contract RollCall is EIP712 {
     error DayHasReadings();
     error AlreadyClosed();
 
-    constructor(IERC20 token_) EIP712("Roll Call", "2") {
+    constructor(IERC20 token_) EIP712("Roll Call", "3") {
         token = token_;
     }
 
@@ -184,6 +188,7 @@ contract RollCall is EIP712 {
         if (t.ratePerDay == 0) revert BadTerms("rate");
         if (t.slash > t.bond) revert BadTerms("slash above bond");
         if (t.lateWindow > t.dayLength) revert BadTerms("late window");
+        if (t.schoolHours > t.dayLength) revert BadTerms("school hours");
         termId = ++termCount;
         Terms storage s = _terms[termId];
         s.funder = msg.sender;
@@ -197,6 +202,7 @@ contract RollCall is EIP712 {
         s.maxRttMs = t.maxRttMs;
         s.start = t.start;
         s.dayLength = t.dayLength;
+        s.schoolHours = t.schoolHours;
         s.lateWindow = t.lateWindow;
         s.challengeWindow = t.challengeWindow;
         s.numDays = t.numDays;
@@ -274,13 +280,17 @@ contract RollCall is EIP712 {
         if (ECDSA.recover(digest, sig) != t.probe) revert BadSignature();
         if (r.takenAt > block.timestamp + 60) revert FromTheFuture();
         uint16 day = _dayOf(t, r.takenAt);
-        if (block.timestamp >= _dayEnd(t, day) + t.lateWindow) revert TooLate(); // never on a day that can settle
+        // a test must arrive within the late window; an offline report (it can only count against the
+        // provider) may arrive until the day can settle, never at or after that moment
+        bool offline = asn == 0 && r.downKbps == 0 && r.upKbps == 0 && r.rttMs == 0;
+        if (block.timestamp >= (offline ? _settleableAt(t, day) : _dayEnd(t, day) + t.lateWindow)) revert TooLate();
         if (testUsed[r.testId]) revert TestAlreadyUsed();
         testUsed[r.testId] = true;
         Day storage d = _days[r.termId][day];
         bool pass = asn == t.asn && r.downKbps >= t.minDownKbps && r.upKbps >= t.minUpKbps && r.rttMs <= t.maxRttMs;
-        uint32 bit = uint32(1) << _slotOf(t, day, r.takenAt);
-        bool newSlot = pass && (d.slotMask & bit) == 0;
+        (bool inHours, uint8 part) = _slotOf(t, day, r.takenAt);
+        uint32 bit = uint32(1) << part;
+        bool newSlot = pass && inHours && (d.slotMask & bit) == 0;
         // the cap stops a flood of failing readings, but never refuses a pass the day still needs
         if (d.readings >= MAX_READINGS_PER_DAY && !newSlot) revert DayFull();
         if (d.readings < type(uint8).max) d.readings += 1;
@@ -291,22 +301,25 @@ contract RollCall is EIP712 {
         emit ReadingRecorded(r.termId, day, r.takenAt, r.downKbps, r.upKbps, r.rttMs, asn, pass, mlabTestId);
     }
 
-    /// @notice The school marks a day closed (holiday, exam day, power cut). Signed by the probe key and
-    /// relayed by anyone. Only before the day has any reading, so it can neither erase a failure the
-    /// probe already saw nor take back a pass the provider earned.
-    function closeDay(uint256 termId, uint16 day, string calldata reason, bytes calldata probeSig) external {
+    /// @notice The school marks one or more days closed (weekends, holidays, exams, floods). Signed by the
+    /// probe key and relayed by anyone. Only days that have not ended and have no reading at all, so a
+    /// closure can neither erase a failure the probe already saw nor take back a pass the provider earned.
+    function closeDays(uint256 termId, uint16 fromDay, uint16 toDay, string calldata reason, bytes calldata probeSig) external {
         Terms storage t = _terms[termId];
         if (_state[termId].ended) revert TermIsOver();
-        if (day >= t.numDays) revert OutsideTerm();
-        if (block.timestamp >= _dayEnd(t, day)) revert TooLate();
-        bytes32 digest =
-            _hashTypedDataV4(keccak256(abi.encode(CLOSURE_TYPEHASH, termId, day, keccak256(bytes(reason)))));
+        if (fromDay > toDay || toDay >= t.numDays || toDay - fromDay >= MAX_CLOSURE_DAYS) revert OutsideTerm();
+        if (block.timestamp >= _dayEnd(t, fromDay)) revert TooLate();
+        bytes32 digest = _hashTypedDataV4(
+            keccak256(abi.encode(CLOSURE_TYPEHASH, termId, fromDay, toDay, keccak256(bytes(reason))))
+        );
         if (ECDSA.recover(digest, probeSig) != t.probe) revert BadSignature();
-        Day storage d = _days[termId][day];
-        if (d.closed) revert AlreadyClosed();
-        if (d.readings > 0) revert DayHasReadings();
-        d.closed = true;
-        emit DayClosed(termId, day, reason);
+        for (uint16 day = fromDay; day <= toDay; ++day) {
+            Day storage d = _days[termId][day];
+            if (d.closed) revert AlreadyClosed();
+            if (d.readings > 0) revert DayHasReadings();
+            d.closed = true;
+            emit DayClosed(termId, day, reason);
+        }
     }
 
     // ------------------------------------------------------------- challenges
@@ -394,11 +407,14 @@ contract RollCall is EIP712 {
         st.refunded += refund;
         st.settledDays += 1;
         st.nextToSettle = day + 1;
-        if (m == Mark.Absent || m == Mark.Voided) {
+        // a failing day is a strike: absent, voided, or passing fewer than half its parts; a day passing at
+        // least half its parts resets the run; silent and closed days leave it as it was
+        bool weak = m == Mark.Partial && uint256(d.passes) * 2 < t.required;
+        if (m == Mark.Absent || m == Mark.Voided || weak) {
             if (st.strikes < type(uint8).max) st.strikes += 1;
         } else if (m == Mark.Present || m == Mark.Partial) {
             st.strikes = 0;
-        } // Silent and Closed leave the run of strikes as it was
+        }
         if (pay > 0) token.safeTransfer(t.provider, pay);
         if (refund > 0) token.safeTransfer(t.funder, refund);
         emit DaySettled(termId, day, m, d.passes, pay, refund);
@@ -415,7 +431,7 @@ contract RollCall is EIP712 {
         token.safeTransfer(t.funder, cut);
     }
 
-    /// @notice After strikeLimit absent days in a row, the funder may end the term: the days not yet
+    /// @notice After strikeLimit failing days in a row, the funder may end the term: the days not yet
     /// served come back, and part of the provider's bond with them. A day the provider earned is
     /// always paid: a finished day with any passing test has to settle before the term can end.
     function terminate(uint256 termId) external {
@@ -499,11 +515,13 @@ contract RollCall is EIP712 {
         return uint16(d);
     }
 
-    /// @dev Which of the day's `required` equal slots a moment falls in.
-    function _slotOf(Terms storage t, uint16 day, uint64 ts) internal view returns (uint8) {
+    /// @dev Which of the day's `required` equal parts of school hours a moment falls in, if any.
+    function _slotOf(Terms storage t, uint16 day, uint64 ts) internal view returns (bool, uint8) {
         uint256 into = ts - (uint256(t.start) + uint256(day) * t.dayLength);
+        uint256 open_ = t.schoolHours == 0 ? t.dayLength : t.schoolHours;
+        if (into >= open_) return (false, 0);
         // forge-lint: disable-next-line(unsafe-typecast)
-        return uint8((into * t.required) / t.dayLength);
+        return (true, uint8((into * t.required) / open_));
     }
 
     function _dayEnd(Terms storage t, uint16 day) internal view returns (uint256) {

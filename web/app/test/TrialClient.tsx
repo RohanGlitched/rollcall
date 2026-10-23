@@ -288,7 +288,7 @@ export function TrialClient() {
         mark(2, "fail", j.error);
         throw new Error(j.error || "The reading was refused.");
       }
-      mark(2, "done", <>The test ran over {j.holder} (AS{j.asn}). The term is contracted to AS{t.asn}.</>);
+      mark(2, "done", <>The test ran over {j.holder} (AS{j.asn}). The term is contracted to AS{t.asn}.{j.note ? <span className="mt-1 block text-part">{j.note}</span> : null}</>);
       mark(
         3,
         "done",
@@ -332,7 +332,7 @@ export function TrialClient() {
         domain: DOMAIN,
         types: CLOSURE_TYPES,
         primaryType: "Closure",
-        message: { termId: BigInt(term.id), day, reason },
+        message: { termId: BigInt(term.id), fromDay: day, toDay: day, reason },
       });
       const r = await fetch("/api/close", {
         method: "POST",

@@ -197,7 +197,10 @@ export function ProbeKit() {
       const now = Date.now() / 1000;
       if (now < t.start || now >= t.start + t.numDays * t.dayLength) return;
       const day = Math.floor((now - t.start) / t.dayLength);
-      const part = Math.floor(((now - t.start - day * t.dayLength) * t.required) / t.dayLength);
+      const into = now - t.start - day * t.dayLength;
+      const open = t.schoolHours || t.dayLength;
+      if (into >= open) return; // school is shut: no test until tomorrow's opening
+      const part = Math.floor((into * t.required) / open);
       const key = `${day}:${part}`;
       const passedKey = `passed:${key}`;
       if (lastTry.current[passedKey]) return;

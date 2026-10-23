@@ -2,15 +2,16 @@ import { createPublicClient, fallback, http } from "viem";
 import { baseSepolia } from "viem/chains";
 
 export const CHAIN = baseSepolia;
-export const ROLLCALL = "0x27500043Bf3A8ae3405264412C2D4D43E8744150" as const;
-/** v1 (Oct 23 morning), replaced after an audit; kept for the record. */
+export const ROLLCALL = "0xD4EDf73a6604840986C32339A96c8E59cB915984" as const;
+/** Earlier deployments, replaced on Oct 23 after reviews; kept for the record. */
 export const ROLLCALL_V1 = "0x6b5fa7F9bD52D8162bF61D329ca167C5CF069dd5" as const;
+export const ROLLCALL_V2 = "0x27500043Bf3A8ae3405264412C2D4D43E8744150" as const;
 export const TEST_DOLLAR = "0xA6F6e6Bb1Bc46a54635a417Fc8d601B39BaB3762" as const;
 export const HOUSE = "0x629239c5b7B7e6E78944DFd8f4D519161BbA79d9" as const; // attester, settles, pays visitors' gas
 export const FUNDER = "0xb582FBB0b36365dED379f6B9Bc9AC6f2de4A304B" as const;
 export const ARBITER = "0xf7ADb15eb48085a35Efb1eb04c946bE4D20e5AcD" as const;
 export const PROVIDER = "0x0E82E9f33e83a3be2895b9Fe68b75A735790fD4b" as const;
-export const DEPLOY_BLOCK = 49071540n;
+export const DEPLOY_BLOCK = 49112129n;
 export const EXPLORER = "https://base-sepolia.blockscout.com";
 
 export const RPC_URLS = [
@@ -29,7 +30,7 @@ export const addrUrl = (a: string) => `${EXPLORER}/address/${a}`;
 /** EIP-712 domain and types the probe signs. Must match RollCall.sol. */
 export const DOMAIN = {
   name: "Roll Call",
-  version: "2",
+  version: "3",
   chainId: CHAIN.id,
   verifyingContract: ROLLCALL,
 } as const;
@@ -49,7 +50,8 @@ export const READING_TYPES = {
 export const CLOSURE_TYPES = {
   Closure: [
     { name: "termId", type: "uint256" },
-    { name: "day", type: "uint16" },
+    { name: "fromDay", type: "uint16" },
+    { name: "toDay", type: "uint16" },
     { name: "reason", type: "string" },
   ],
 } as const;

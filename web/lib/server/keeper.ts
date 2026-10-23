@@ -119,9 +119,9 @@ async function runSchool(school: SimSchool, idx: number, latest: TermView | unde
       domain: DOMAIN,
       types: CLOSURE_TYPES,
       primaryType: "Closure",
-      message: { termId: BigInt(tid), day: today, reason },
+      message: { termId: BigInt(tid), fromDay: today, toDay: today, reason },
     });
-    await relayClose(tid, today, reason, sig);
+    await relayClose(tid, today, today, reason, sig);
     log.push(`${school.key}: day ${today + 1} closed (${reason})`);
   }
 

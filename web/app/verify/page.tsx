@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SiteFooter, REPO, PageHero } from "@/components/Site";
-import { ROLLCALL, TEST_DOLLAR, HOUSE, PROVIDER, addrUrl, EXPLORER } from "@/lib/chain";
+import { ROLLCALL, ROLLCALL_V1, TEST_DOLLAR, HOUSE, PROVIDER, FUNDER, ARBITER, addrUrl, EXPLORER } from "@/lib/chain";
 import { GAS_ROWS, YEAR_GAS } from "@/lib/gas";
 import { mainnetPrices } from "@/lib/server/prices";
 
@@ -15,7 +15,8 @@ export default async function Verify({ searchParams }: { searchParams: Promise<{
   const q = await searchParams;
   const px = await mainnetPrices();
   const cost = (gas: number) => (px ? `$${((gas * px.gasPriceGwei * 1e-9) * px.ethUsd).toFixed(gas > 1e6 ? 2 : 5)}` : "—");
-  const test = (q.test || "").replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 120);
+  const tests = (q.test || "").split("|").map((x) => x.replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 80)).filter(Boolean).slice(0, 2);
+  const test = tests[0] || "";
   const day = (() => {
     const m = test.match(/_(\d{10})_/);
     return m ? new Date(Number(m[1]) * 1000).toISOString().slice(0, 10) : "YYYY-MM-DD";
@@ -43,7 +44,7 @@ export default async function Verify({ searchParams }: { searchParams: Promise<{
   server.Site AS mlab_site
 FROM \`measurement-lab.ndt.ndt7\`
 WHERE date = "${day}"
-  AND id = "${test}"`}</pre>
+  AND id IN (${tests.map((x) => `"${x}"`).join(", ")})`}</pre>
           </section>
         )}
 
@@ -53,10 +54,13 @@ WHERE date = "${day}"
             <table className="w-full text-left text-[15px]">
               <tbody className="bg-sheet">
                 {[
-                  ["Roll Call", ROLLCALL, "Terms, readings, day marks, payouts. Source verified."],
-                  ["Test dollar (tUSD)", TEST_DOLLAR, "6 decimals, minted by the house for the demo. No value."],
-                  ["House", HOUSE, "Funder, attester and arbiter for demo terms; pays every visitor’s gas."],
+                  ["Roll Call v2", ROLLCALL, "Terms, readings, day marks, payouts. Source verified."],
+                  ["Test dollar (tUSD)", TEST_DOLLAR, "6 decimals, minted by the attester key for the demo. No value."],
+                  ["Attester", HOUSE, "Checks networks, records readings, settles days, relays closures; pays every visitor’s gas."],
+                  ["Funder", FUNDER, "Opens demo terms, challenges suspicious days, ends terms after repeated absences."],
+                  ["Arbiter", ARBITER, "Decides challenges."],
                   ["Provider", PROVIDER, "Receives payouts and posts bonds for demo terms."],
+                  ["Roll Call v1 (retired)", ROLLCALL_V1, "The first deployment, replaced the same day after an audit found that a funder could end a term before earned days settled, closures could erase passes, and one key could hold two roles."],
                 ].map(([n, a, d]) => (
                   <tr key={n} className="border-t border-rule align-top first:border-t-0">
                     <th className="px-5 py-4 font-serif font-semibold">{n}</th>
@@ -77,21 +81,21 @@ WHERE date = "${day}"
           <div>
             <h2 className="text-[28px] font-semibold">Read a term from the chain</h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted">
-              With Foundry’s <code>cast</code>, no account needed. The register returns one entry per school day:
-              readings, passes, mark (0 open, 1 present, 2 partial, 3 absent, 4 silent, 5 closed, 6 voided), closed,
-              challenged, voided.
+              With Foundry’s <code>cast</code>, no account needed. The register returns one entry per school day: readings,
+              parts of the day passed, which parts (a bit mask), mark (0 open, 1 present, 2 partial, 3 absent, 4 silent, 5 closed,
+              6 voided), closed, challenged, voided.
             </p>
             <pre className={`${pre} mt-4`}>{`RPC=https://sepolia.base.org
 RC=${ROLLCALL}
 
 cast call $RC "termCount()(uint256)" --rpc-url $RPC
-cast call $RC "register(uint256)((uint8,uint8,uint8,bool,bool,bool)[])" 1 --rpc-url $RPC
-cast call $RC "state(uint256)((uint128,uint128,uint128,uint128,uint16,uint16,uint8,bool,bool))" 1 --rpc-url $RPC`}</pre>
+cast call $RC "register(uint256)((uint8,uint8,uint32,uint8,bool,bool,bool)[])" 1 --rpc-url $RPC
+cast call $RC "state(uint256)((uint128,uint128,uint128,uint128,uint128,uint16,uint16,uint8,bool,bool))" 1 --rpc-url $RPC`}</pre>
           </div>
           <div>
             <h2 className="text-[28px] font-semibold">Run the contract’s tests</h2>
             <p className="mt-3 text-[15px] leading-relaxed text-muted">
-              33 tests, including a fuzz test over 500 random terms that checks no money is created or lost.
+              39 tests, including a fuzz test over 500 random terms that checks no money is created or lost.
             </p>
             <pre className={`${pre} mt-4`}>{`git clone ${REPO}
 cd rollcall/contracts

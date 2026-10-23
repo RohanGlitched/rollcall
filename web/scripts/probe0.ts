@@ -13,14 +13,17 @@ async function main() {
   if (!key || !termId) throw new Error("PROBE_KEY and TERM_ID are required");
   const acct = privateKeyToAccount(key);
   const res = await runNdt7(() => {});
+  const salt = process.env.SALT || "";
+  if (!/^[0-9a-f]{32,64}$/i.test(salt)) throw new Error("SALT (hex) is required");
+  const ids = res.upUuid ? `${res.uuid}|${res.upUuid}` : res.uuid;
   const message = {
     termId: BigInt(termId),
     takenAt: BigInt(res.finishedAt),
     downKbps: res.downKbps,
     upKbps: res.upKbps,
     rttMs: res.rttMs,
-    testId: keccak256(toBytes(res.uuid)),
-    clientHash: keccak256(toBytes(res.clientIp)),
+    testId: keccak256(toBytes(ids)),
+    clientHash: keccak256(toBytes(`${salt}:${res.clientIp}`)),
   };
   const sig = await acct.signTypedData({ domain: DOMAIN, types: READING_TYPES, primaryType: "Reading", message });
   const r = await fetch(`${api}/api/reading`, {
@@ -33,6 +36,8 @@ async function main() {
       upKbps: res.upKbps,
       rttMs: res.rttMs,
       uuid: res.uuid,
+      upUuid: res.upUuid,
+      salt,
       client: res.client,
       machine: res.machine,
       sig,

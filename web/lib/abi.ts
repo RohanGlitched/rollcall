@@ -7,11 +7,6 @@ export const rollCallAbi = [
     "name": "token_",
     "type": "address",
     "internalType": "contract IERC20"
-   },
-   {
-    "name": "attester_",
-    "type": "address",
-    "internalType": "address"
    }
   ],
   "stateMutability": "nonpayable"
@@ -19,6 +14,19 @@ export const rollCallAbi = [
  {
   "type": "function",
   "name": "MAX_READINGS_PER_DAY",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "function",
+  "name": "MAX_SLOTS",
   "inputs": [],
   "outputs": [
    {
@@ -41,19 +49,6 @@ export const rollCallAbi = [
   ],
   "outputs": [],
   "stateMutability": "nonpayable"
- },
- {
-  "type": "function",
-  "name": "attester",
-  "inputs": [],
-  "outputs": [
-   {
-    "name": "",
-    "type": "address",
-    "internalType": "address"
-   }
-  ],
-  "stateMutability": "view"
  },
  {
   "type": "function",
@@ -155,6 +150,11 @@ export const rollCallAbi = [
       "name": "passes",
       "type": "uint8",
       "internalType": "uint8"
+     },
+     {
+      "name": "slotMask",
+      "type": "uint32",
+      "internalType": "uint32"
      },
      {
       "name": "mark",
@@ -262,6 +262,11 @@ export const rollCallAbi = [
       "internalType": "address"
      },
      {
+      "name": "attester",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
       "name": "arbiter",
       "type": "address",
       "internalType": "address"
@@ -333,6 +338,11 @@ export const rollCallAbi = [
      },
      {
       "name": "slash",
+      "type": "uint128",
+      "internalType": "uint128"
+     },
+     {
+      "name": "challengeDeposit",
       "type": "uint128",
       "internalType": "uint128"
      }
@@ -501,6 +511,11 @@ export const rollCallAbi = [
       "internalType": "uint8"
      },
      {
+      "name": "slotMask",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
       "name": "mark",
       "type": "uint8",
       "internalType": "enum RollCall.Mark"
@@ -603,6 +618,11 @@ export const rollCallAbi = [
       "internalType": "uint128"
      },
      {
+      "name": "slashed",
+      "type": "uint128",
+      "internalType": "uint128"
+     },
+     {
       "name": "settledDays",
       "type": "uint16",
       "internalType": "uint16"
@@ -690,6 +710,11 @@ export const rollCallAbi = [
       "internalType": "address"
      },
      {
+      "name": "attester",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
       "name": "arbiter",
       "type": "address",
       "internalType": "address"
@@ -761,6 +786,11 @@ export const rollCallAbi = [
      },
      {
       "name": "slash",
+      "type": "uint128",
+      "internalType": "uint128"
+     },
+     {
+      "name": "challengeDeposit",
       "type": "uint128",
       "internalType": "uint128"
      }
@@ -1105,6 +1135,11 @@ export const rollCallAbi = [
  },
  {
   "type": "error",
+  "name": "AlreadyClosed",
+  "inputs": []
+ },
+ {
+  "type": "error",
   "name": "AlreadySettled",
   "inputs": []
  },
@@ -1141,7 +1176,12 @@ export const rollCallAbi = [
  },
  {
   "type": "error",
-  "name": "DaysRemain",
+  "name": "DayHasReadings",
+  "inputs": []
+ },
+ {
+  "type": "error",
+  "name": "DayNotOver",
   "inputs": []
  },
  {
@@ -1236,6 +1276,11 @@ export const rollCallAbi = [
     "internalType": "address"
    }
   ]
+ },
+ {
+  "type": "error",
+  "name": "SettleFirst",
+  "inputs": []
  },
  {
   "type": "error",

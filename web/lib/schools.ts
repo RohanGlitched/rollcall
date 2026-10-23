@@ -3,7 +3,10 @@
 // Simulated schools use private-use network numbers (AS64512+) and test ids that start with
 // "sim:", so nothing simulated can be mistaken for a real measurement on chain.
 
-export type DayScript = "ok" | "slow" | "down" | "hotspot" | "closed" | "fake";
+export type DayScript = "ok" | "slow" | "down" | "dark" | "hotspot" | "closed" | "fake";
+// ok: every test passes; slow: some slots fail; down: the probe is on but the line is dead (offline reports);
+// dark: the device is off, nothing reports; hotspot: tests pass over another network; closed: the school is shut;
+// fake: readings that M-Lab never saw, caught by a challenge.
 
 export type SimSchool = {
   key: string;
@@ -23,6 +26,7 @@ export const SIM_REQUIRED = 3;
 export const SIM_RATE = 12_000_000n; // 12 tUSD a school day
 export const SIM_BOND = 60_000_000n;
 export const SIM_SLASH = 20_000_000n;
+export const SIM_DEPOSIT = 3_000_000n;
 export const SIM_STRIKES = 5;
 export const SIM_LATE = 300;
 export const SIM_CHALLENGE = 300;
@@ -47,7 +51,7 @@ export const SIM_SCHOOLS: SimSchool[] = [
     provider: "Ridgeline Fibre (simulated)",
     asn: 64513,
     story:
-      "A landslide cuts the fibre on day 8 and nobody comes to fix it. After five silent days in a row the funder ends the term and takes back every day not yet served, plus part of the provider's bond.",
+      "A landslide cuts the fibre on day 8 and nobody comes to fix it. The probe stays on and signs “no connection” every school day. After five absent days in a row the funder ends the term and takes back every day not yet served, plus part of the provider’s bond.",
     script: (d) => (d >= 7 ? "down" : "ok"),
   },
   {
@@ -58,8 +62,8 @@ export const SIM_SCHOOLS: SimSchool[] = [
     provider: "Brahmaputra Broadband (simulated)",
     asn: 64514,
     story:
-      "Floods close the school twice. The headteacher marks those days closed before they end, so the provider is not struck for them and the funder keeps the money.",
-    script: (d) => (d === 5 || d === 6 || d === 15 ? "closed" : d === 11 || d === 12 ? "down" : d % 7 === 3 ? "slow" : "ok"),
+      "Floods close the school twice; the headteacher marks those days closed before testing starts. Later a two-day power cut switches the probe off: nothing reports, the days are refunded, and none of it counts against the provider.",
+    script: (d) => (d === 5 || d === 6 || d === 15 ? "closed" : d === 11 || d === 12 ? "dark" : d % 7 === 3 ? "slow" : "ok"),
     closeReason: (d) => (d === 15 ? "School closed: flood warning" : "School closed: flooding on the ferry route"),
   },
   {
@@ -70,7 +74,7 @@ export const SIM_SCHOOLS: SimSchool[] = [
     provider: "Sal Valley Net (simulated)",
     asn: 64515,
     story:
-      "The link is up but slow. On most days only one or two of the three tests reach 10 Mbps, so the provider is paid a third or two thirds of the day.",
+      "The link is up but slow. A day is split into three parts and a test has to pass in each; on most days only one or two parts reach 10 Mbps, so the provider is paid a third or two thirds.",
     script: (d) => (d % 5 === 0 ? "ok" : d % 3 === 0 ? "down" : "slow"),
   },
   {
@@ -101,6 +105,7 @@ export const SIM_SCHOOLS: SimSchool[] = [
 export const simByName = (name: string) => SIM_SCHOOLS.find((s) => s.name === name);
 
 export const REAL_PROBE_NAME = "Probe 0: a cloud server in India";
+export const SIM_LABEL = "simulated";
 export const TRIAL_PREFIX = "Visitor school";
 
 export type TermKind = "sim" | "real" | "trial" | "other";
@@ -123,7 +128,8 @@ export const TRIAL = {
   bond: 20_000_000n,
   slash: 5_000_000n,
   sla: { minDownKbps: 5_000, minUpKbps: 1_000, maxRttMs: 150 },
-  leadSeconds: 18,
+  leadSeconds: 30,
+  challengeDeposit: 0n,
 };
 
 export const FIBRE: Record<string, string> = {

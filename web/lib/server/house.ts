@@ -21,8 +21,15 @@ function key(name: string): Hex {
 
 let _house: Account | undefined;
 let _provider: Account | undefined;
+let _funder: Account | undefined;
+let _arbiter: Account | undefined;
+/** The attester: records readings, settles days, relays closures, owns the test dollar, pays visitors' gas. */
 export const houseAccount = () => (_house ??= privateKeyToAccount(key("HOUSE_KEY")));
 export const providerAccount = () => (_provider ??= privateKeyToAccount(key("PROVIDER_KEY")));
+/** Opens demo terms, challenges suspicious days, ends terms after repeated outages. */
+export const funderAccount = () => (_funder ??= privateKeyToAccount(key("FUNDER_KEY")));
+/** Decides challenges. A separate key: the contract refuses a term where one key holds two roles. */
+export const arbiterAccount = () => (_arbiter ??= privateKeyToAccount(key("ARBITER_KEY")));
 
 /** Probe keys for the simulated schools, derived from the house key so nothing else needs storing. */
 export function simProbeKey(index: number): Hex {
@@ -53,6 +60,10 @@ export function plainError(e: unknown): string {
       NotAccepted: "The provider has not accepted this term yet.",
       ChallengeClosed: "The challenge window for that day has closed.",
       NotEnoughStrikes: "The provider has not missed enough days in a row to end the term.",
+      SettleFirst: "A finished day still has to settle before the term can end.",
+      DayNotOver: "Only a finished day can be challenged.",
+      DayHasReadings: "This day already has a reading, so it can no longer be marked closed.",
+      AlreadyClosed: "This day is already marked closed.",
     };
     if (name && map[name]) return map[name];
     if (name === "BadTerms") return `The terms were refused: ${String(args?.[0] ?? "invalid")}.`;

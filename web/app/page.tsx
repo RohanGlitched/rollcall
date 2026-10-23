@@ -38,7 +38,7 @@ const STEPS = [
   },
   {
     h: "The contract pays",
-    p: "After the day, a late window and a challenge window, anyone can settle it. Enough passing tests pays in full, some pays part, none returns the day to the funder.",
+    p: "The day is split into parts, and a test has to pass in each. After a late window and a challenge window anyone can settle it: every part passed pays in full, some pays that share, none returns the day to the funder.",
     who: "Contract",
   },
 ];
@@ -220,15 +220,15 @@ export default async function Home() {
 
         {/* ------------------------------------------------------------ trust */}
         <section id="trust" className="mx-auto mt-32 max-w-[1280px] px-4 sm:px-8">
-          <Head title="Who has to agree before money moves" lede="No single party can pay itself. Each role is a separate key, and the contract checks every one." />
+          <Head title="Who has to agree before money moves" lede="No single party can pay itself. Each role is a separate key, and the contract refuses any term where one key holds two roles." />
           <div className="mt-12 border-t-2 border-ink">
             {[
-              ["School probe", "Sign what it measured. Mark a day closed before it ends: holiday, flood, power cut.", "Pay anyone, or vouch for which network it used."],
+              ["School probe", "Sign what it measured, or that it could not get online. Mark a day closed before any test runs: holiday, flood, exams.", "Pay anyone, or vouch for which network it used."],
               ["Attester", "Say which network a test ran over. Record readings the probe signed.", "Change a number the probe signed, or count one test twice."],
-              ["Funder", "Lock the term’s money. Challenge a day before it settles. End the term after repeated missed days.", "Take back a day the provider earned, unless the arbiter agrees."],
+              ["Funder", "Lock the term’s money. Challenge a finished day, staking a deposit it loses if wrong. End the term after repeated absent days.", "Take back a day the provider earned, unless the arbiter agrees."],
               ["Provider", "Accept the terms and post a bond. Collect for every working day, the same week.", "Be paid for a day the probe did not see working."],
-              ["Arbiter", "Decide a challenge. Upheld voids the day and cuts the bond.", "Move money any other way."],
-              ["Anyone", "Settle finished days. Read every reading. Check test ids against M-Lab’s archive.", "Anything else."],
+              ["Arbiter", "Decide a challenge. Upheld voids the day and cuts the bond; silence lets it lapse.", "Move money any other way."],
+              ["Anyone", "Settle finished days. Read every reading. Check test ids against M-Lab’s archive.", "Move money any other way, or change a mark."],
             ].map(([r, c, n]) => (
               <div key={r} className="grid gap-2 border-b border-line py-5 md:grid-cols-[200px_1fr_1fr] md:gap-8">
                 <h3 className="text-[20px] font-bold">{r}</h3>

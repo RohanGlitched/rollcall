@@ -16,6 +16,7 @@ export type TermView = {
     funder: string;
     provider: string;
     probe: string;
+    attester: string;
     arbiter: string;
     asn: number;
     minDownKbps: number;
@@ -31,19 +32,23 @@ export type TermView = {
     ratePerDay: string;
     bond: string;
     slash: string;
+    challengeDeposit: string;
   };
   state: {
     escrow: string;
     bondHeld: string;
     paid: string;
     refunded: string;
+    slashed: string;
     settledDays: number;
     nextToSettle: number;
     strikes: number;
     accepted: boolean;
     ended: boolean;
   };
-  days: { readings: number; passes: number; mark: MarkName; closed: boolean; challenged: boolean; voided: boolean }[];
+  days: { readings: number; passes: number; slotMask: number; mark: MarkName; closed: boolean; challenged: boolean; voided: boolean }[];
+  /** Set when the register shows this finished term while the newer one (this id) is in its first hours. */
+  showingPrevious?: number;
 };
 
 export type ReadingView = {
@@ -175,6 +180,7 @@ function shapeTerm(id: number, school: string, tx: string | undefined, t: any, s
       funder: t.funder,
       provider: t.provider,
       probe: t.probe,
+      attester: t.attester,
       arbiter: t.arbiter,
       asn: Number(t.asn),
       minDownKbps: Number(t.minDownKbps),
@@ -190,12 +196,14 @@ function shapeTerm(id: number, school: string, tx: string | undefined, t: any, s
       ratePerDay: String(t.ratePerDay),
       bond: String(t.bond),
       slash: String(t.slash),
+      challengeDeposit: String(t.challengeDeposit),
     },
     state: {
       escrow: String(s.escrow),
       bondHeld: String(s.bondHeld),
       paid: String(s.paid),
       refunded: String(s.refunded),
+      slashed: String(s.slashed),
       settledDays: Number(s.settledDays),
       nextToSettle: Number(s.nextToSettle),
       strikes: Number(s.strikes),
@@ -205,6 +213,7 @@ function shapeTerm(id: number, school: string, tx: string | undefined, t: any, s
     days: days.map((d: any) => ({
       readings: Number(d.readings),
       passes: Number(d.passes),
+      slotMask: Number(d.slotMask),
       mark: MARKS[Number(d.mark)] ?? "Open",
       closed: d.closed,
       challenged: d.challenged,
@@ -305,25 +314,39 @@ export function dayEventsFor(id: number): Promise<DayEventView[]> {
   });
 }
 
-/** Everything the home page needs: the newest term of each simulated school, the real probe, recent visitor terms. */
+/** Everything the home page needs: each simulated school's term, the real probe, recent visitor terms.
+ * For the first six hours of a new simulated term the register shows the one that just finished, so a
+ * visitor never lands on a row of empty strands. */
 export function overview() {
   return cached("overview", 6_000, async () => {
     const names = await termNames();
-    const latestBySchool = new Map<string, number>();
+    const bySchool = new Map<string, number[]>();
     const trials: number[] = [];
     for (const [id, n] of names) {
       const k = kindOf(n.school);
       if (k === "trial") trials.push(id);
-      else if (k === "sim" || k === "real") {
-        if ((latestBySchool.get(n.school) ?? 0) < id) latestBySchool.set(n.school, id);
-      }
+      else if (k === "sim" || k === "real") bySchool.set(n.school, [...(bySchool.get(n.school) ?? []), id]);
     }
+    const pairs = [...bySchool.values()].map((ids) => ids.sort((a, b) => b - a).slice(0, 2));
     const recentTrials = trials.sort((a, b) => b - a).slice(0, 6);
-    const ids = [...latestBySchool.values(), ...recentTrials];
-    const terms = await readTerms(ids);
+    const read = await readTerms([...pairs.flat(), ...recentTrials]);
+    const byId = new Map(read.map((t) => [t.id, t]));
+    const now = Math.floor(Date.now() / 1000);
+    const chosen: TermView[] = [];
+    for (const [latest, prev] of pairs) {
+      const L = byId.get(latest);
+      const P = prev ? byId.get(prev) : undefined;
+      if (!L) continue;
+      const young = L.kind === "sim" && now - L.terms.start < 6 * 3600;
+      chosen.push(young && P ? { ...P, showingPrevious: L.id } : L);
+    }
+    for (const id of recentTrials) {
+      const t = byId.get(id);
+      if (t) chosen.push(t);
+    }
     const totals = { terms: names.size, trials: trials.length };
     const latestReal = await latestRealReading().catch(() => null);
-    return { terms, totals, latestReal, at: Math.floor(Date.now() / 1000) };
+    return { terms: chosen, totals, latestReal, at: now };
   });
 }
 
@@ -334,7 +357,7 @@ export async function latestRealReading(): Promise<(ReadingView & { school: stri
   for (let i = logs.length - 1; i >= 0 && i >= logs.length - 400; i--) {
     const l = logs[i];
     const d = decodeEventLog({ abi: rollCallAbi, eventName: "ReadingRecorded", topics: l.topics as any, data: l.data });
-    if (d.args.mlabTestId.startsWith("sim:")) continue;
+    if (d.args.mlabTestId.startsWith("sim:") || d.args.mlabTestId.startsWith("offline:")) continue;
     const termId = Number(d.args.termId);
     return {
       termId,

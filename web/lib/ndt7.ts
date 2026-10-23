@@ -14,6 +14,7 @@ export type Ndt7Result = {
   upKbps: number;
   rttMs: number; // minimum round trip seen by the server
   uuid: string; // M-Lab test id (download)
+  upUuid?: string; // M-Lab test id (upload)
   client: string; // ip:port the server saw
   clientIp: string;
   server: string;
@@ -105,13 +106,14 @@ function download(url: string, onProgress: (p: Ndt7Progress) => void) {
 }
 
 function upload(url: string, onProgress: (p: Ndt7Progress) => void) {
-  return new Promise<{ kbps: number; rttMs: number }>((resolve, reject) => {
+  return new Promise<{ kbps: number; rttMs: number; uuid?: string }>((resolve, reject) => {
     const ws = new WebSocket(url, PROTOCOL);
     ws.binaryType = "arraybuffer";
     let t0 = 0;
     let sent = 0;
     let last: ServerMeasurement["TCPInfo"];
     let minRtt = Infinity;
+    let uuid: string | undefined;
     let done = false;
     let chunk = new Uint8Array(1 << 13);
     const finish = () => {
@@ -125,7 +127,7 @@ function upload(url: string, onProgress: (p: Ndt7Progress) => void) {
       const serverKbps =
         last?.BytesReceived && last?.ElapsedTime ? (last.BytesReceived * 8) / (last.ElapsedTime / 1e6) / 1000 : 0;
       const clientKbps = secs > 0 ? ((sent - ws.bufferedAmount) * 8) / secs / 1000 : 0;
-      resolve({ kbps: Math.round(serverKbps || clientKbps), rttMs: Number.isFinite(minRtt) ? Math.round(minRtt) : 0 });
+      resolve({ kbps: Math.round(serverKbps || clientKbps), rttMs: Number.isFinite(minRtt) ? Math.round(minRtt) : 0, uuid });
     };
     const timer = setTimeout(finish, (PHASE_SECONDS + 3) * 1000);
     const pump = () => {
@@ -149,6 +151,7 @@ function upload(url: string, onProgress: (p: Ndt7Progress) => void) {
     ws.onmessage = (e) => {
       if (typeof e.data !== "string") return;
       const m = JSON.parse(e.data) as ServerMeasurement;
+      if (m.ConnectionInfo?.UUID) uuid = m.ConnectionInfo.UUID;
       if (m.TCPInfo) last = m.TCPInfo;
       const rtt = m.TCPInfo?.MinRTT ?? m.BBRInfo?.MinRTT;
       if (rtt) minRtt = Math.min(minRtt, rtt / 1000);
@@ -177,6 +180,7 @@ export async function runNdt7(onProgress: (p: Ndt7Progress) => void): Promise<Nd
     upKbps: u.kbps,
     rttMs: rtts.length ? Math.min(...rtts) : 0,
     uuid: d.info.UUID,
+    upUuid: u.uuid,
     client: d.info.Client,
     clientIp: ipOf(d.info.Client),
     server: d.info.Server,

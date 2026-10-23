@@ -236,6 +236,8 @@ function StrandRow({
   const n = t.days.length;
   const seg = width / n;
   const today = currentDay(t, now);
+  const frac = (now - t.terms.start) / (t.terms.dayLength * n);
+  const showNow = !t.state.ended && frac > 0 && frac < 1;
   return (
     <svg width={width} height={H} className="block overflow-visible" role="img" aria-label={`${t.school}: ${t.days.filter((d) => d.mark === "Present").length} days paid in full`}>
       {t.days.map((_, d) => {
@@ -261,6 +263,12 @@ function StrandRow({
           />
         );
       })}
+      {showNow && (
+        <g aria-hidden pointerEvents="none">
+          <line x1={frac * width} x2={frac * width} y1={2} y2={H - 2} stroke="#eaf2f0" strokeOpacity={0.55} strokeWidth={1} />
+          <circle cx={frac * width} cy={2} r={2.5} fill="#eaf2f0" />
+        </g>
+      )}
     </svg>
   );
 }
@@ -295,7 +303,6 @@ export function Strands({
   const t0 = terms[0];
   const n = Math.max(1, ...terms.map((t) => t.days.length));
   const day = t0 ? currentDay(t0, now) : -1;
-  const nowFrac = t0 ? (now - t0.terms.start) / (t0.terms.dayLength * n) : -1;
   const dark = tone === "duct";
   const muted = dark ? "text-glass-muted" : "text-muted";
   const rule = dark ? "border-duct-line" : "border-line";
@@ -395,21 +402,6 @@ export function Strands({
           );
         })}
       </div>
-
-      {/* the now line across every strand */}
-      {width > 0 && nowFrac > 0 && nowFrac < 1 && (
-        <div className="pointer-events-none absolute inset-y-0 grid w-full grid-cols-1 gap-x-6 md:grid-cols-[minmax(170px,230px)_1fr_auto]" aria-hidden>
-          <div className="max-md:hidden" />
-          <div className="relative">
-            <div className={`absolute top-6 bottom-0 w-px ${dark ? "bg-glass/50" : "bg-ink/40"}`} style={{ left: nowFrac * width }}>
-              <span className={`absolute -top-[22px] -translate-x-1/2 rounded-full px-2 py-0.5 text-[10.5px] font-bold whitespace-nowrap ${dark ? "bg-glass text-duct" : "bg-ink text-sheet"}`}>
-                now
-              </span>
-            </div>
-          </div>
-          {showMoney && <div className="max-md:hidden w-[152px]" />}
-        </div>
-      )}
 
       {tip && (
         <div

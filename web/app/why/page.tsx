@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter, PageHero } from "@/components/Site";
 import { CountedNotChecked, StateStrands } from "@/components/Udise";
+import { FunderCalculator } from "@/components/Calculator";
 
 export const metadata: Metadata = {
   title: "Why pay by the working day",
@@ -39,7 +40,7 @@ export default function Why() {
               Every year UDISE+, the Ministry of Education’s census of all 1.47 million schools, records whether each school has
               electricity, water, toilets and computers, and separately whether each of them works. For internet it records
               one thing: whether the school has a connection. 934,000 schools do. How many of those connections work on a
-              given school day is not recorded anywhere.
+              given school day is not recorded in UDISE+.
             </p>
             <div className="rounded-2xl border border-line bg-sheet p-5 sm:p-7">
               <CountedNotChecked />
@@ -87,6 +88,16 @@ export default function Why() {
               needs: a working line on a school day, measured from inside the school.
             </p>
           </Block>
+
+          <section className="border-t border-line py-12">
+            <h2 className="max-w-3xl text-[30px] leading-[1.08] font-bold">What a funder gets back</h2>
+            <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-muted">
+              Move the sliders. A flat contract pays for every day; Roll Call pays for the days the school was online.
+            </p>
+            <div className="mt-8">
+              <FunderCalculator />
+            </div>
+          </section>
 
           <Block title="Who would pay through it">
             <ul className="list-disc space-y-2 pl-5">

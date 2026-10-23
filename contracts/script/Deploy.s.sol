@@ -3,18 +3,16 @@ pragma solidity 0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
 import {RollCall} from "../src/RollCall.sol";
-import {TestDollar} from "../src/TestDollar.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// Deploys the test dollar and Roll Call. The house key owns the test dollar and is the attester.
+/// Deploys Roll Call v2 against the existing test dollar (TEST_DOLLAR env).
 contract Deploy is Script {
     function run() external {
         uint256 key = vm.envUint("HOUSE_KEY");
-        address house = vm.addr(key);
+        address usd = vm.envAddress("TEST_DOLLAR");
         vm.startBroadcast(key);
-        TestDollar usd = new TestDollar(house);
-        RollCall rc = new RollCall(usd, house);
+        RollCall rc = new RollCall(IERC20(usd));
         vm.stopBroadcast();
-        console.log("TestDollar", address(usd));
         console.log("RollCall", address(rc));
     }
 }

@@ -12,7 +12,20 @@ import { cellState, currentDay, mbps, usd, ago } from "@/lib/days";
 import { TRIAL } from "@/lib/schools";
 
 const KEY_STORE = "rollcall.probe.v1";
-const TERM_STORE = "rollcall.trial.v1";
+const TERM_STORE = "rollcall.trial.v2";
+const SALT_STORE = "rollcall.salt.v1";
+
+function probeSalt(): string {
+  try {
+    const s = localStorage.getItem(SALT_STORE);
+    if (s && /^[0-9a-f]{32}$/.test(s)) return s;
+    const n = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem(SALT_STORE, n);
+    return n;
+  } catch {
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+}
 
 function probeKey(): Hex {
   try {
@@ -113,7 +126,10 @@ export function TrialClient() {
   const [result, setResult] = useState<Ndt7Result | null>(null);
   const [testSteps, setTestSteps] = useState<Step[] | null>(null);
   const [lastTx, setLastTx] = useState<{ kind: string; tx: string } | null>(null);
+  const [consent, setConsent] = useState(false);
+  const [auto, setAuto] = useState(true);
   const settling = useRef(false);
+  const autoRan = useRef(new Set<number>());
 
   // resume an open term after a reload
   useEffect(() => {
@@ -236,17 +252,19 @@ export function TrialClient() {
       mark(1, "run");
       const acct = privateKeyToAccount(probeKey());
       const takenAt = Math.max(res.finishedAt, t.start + 1);
+      const salt = probeSalt();
+      const ids = res.upUuid ? `${res.uuid}|${res.upUuid}` : res.uuid;
       const message = {
         termId: BigInt(term.id),
         takenAt: BigInt(takenAt),
         downKbps: res.downKbps,
         upKbps: res.upKbps,
         rttMs: res.rttMs,
-        testId: keccak256(toBytes(res.uuid)),
-        clientHash: keccak256(toBytes(res.clientIp)),
+        testId: keccak256(toBytes(ids)),
+        clientHash: keccak256(toBytes(`${salt}:${res.clientIp}`)),
       };
       const sig = await acct.signTypedData({ domain: DOMAIN, types: READING_TYPES, primaryType: "Reading", message });
-      mark(1, "done", <>Signed by {acct.address.slice(0, 10)}…; your address is hashed, never written on chain.</>);
+      mark(1, "done", <>Signed by {acct.address.slice(0, 10)}…. Only a salted hash of your address goes on chain.</>);
       mark(2, "run");
       const r = await fetch("/api/reading", {
         method: "POST",
@@ -258,6 +276,8 @@ export function TrialClient() {
           upKbps: res.upKbps,
           rttMs: res.rttMs,
           uuid: res.uuid,
+          upUuid: res.upUuid,
+          salt,
           client: res.client,
           machine: res.machine,
           sig,
@@ -288,6 +308,19 @@ export function TrialClient() {
       setTesting(false);
     }
   }
+
+  // run one test at the start of each school day unless the visitor turned it off
+  useEffect(() => {
+    if (!auto || testing || !term || !t || term.state.ended) return;
+    const d = currentDay(term, now);
+    if (d < 0 || d >= t.numDays || autoRan.current.has(d)) return;
+    const day = term.days[d];
+    if (!day || day.closed || day.readings > 0) return;
+    if (now - (t.start + d * t.dayLength) < 3) return;
+    autoRan.current.add(d);
+    runTest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now, auto, testing, term]);
 
   async function closeToday(day: number) {
     if (!term) return;
@@ -362,12 +395,20 @@ export function TrialClient() {
             </label>
           </fieldset>
           {network?.error && <p className="mt-3 text-[13px] text-amber">{network.error}</p>}
+          <label className="mt-6 flex cursor-pointer gap-3 text-[13.5px] leading-snug">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#0f1b24]" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <span>
+              I understand that M-Lab publishes every speed test it runs, including the IP address it ran from, in its{" "}
+              <a className="underline" href="https://www.measurementlab.net/privacy/">open archive</a>. Roll Call writes only a salted
+              hash of the address on chain.
+            </span>
+          </label>
           <button
             onClick={openTerm}
-            disabled={!!opening}
+            disabled={!!opening || !consent}
             className="mt-6 w-full rounded-full bg-ink px-5 py-3.5 text-[15px] font-semibold text-sheet hover:bg-ink-soft disabled:cursor-wait disabled:opacity-70"
           >
-            {opening ? "Opening the term…" : "Open the term"}
+            {opening ? "Opening the term…" : consent ? "Open the term" : "Tick the box above to open the term"}
           </button>
           {opening && (
             <div className="mt-5">
@@ -381,7 +422,7 @@ export function TrialClient() {
           <ol className="space-y-4">
             {[
               ["Your browser becomes the school’s probe.", "It makes a key and keeps it in this browser. Only that key can sign this school’s readings."],
-              ["Each two-minute day, run a speed test.", "A real M-Lab ndt7 test, about 20 seconds. The numbers come from M-Lab’s server, not from this page."],
+              ["Each two-minute day, run a speed test.", "A real M-Lab ndt7 test, about 20 seconds. The speeds are the ones M-Lab’s server counted, and M-Lab keeps its own copy in its public archive."],
               ["The network is checked.", "The attester looks up the network of the address M-Lab saw and makes sure you sent the reading from the same one."],
               ["Each day settles on its own.", `${TRIAL.lateWindow + TRIAL.challengeWindow} seconds after a day ends, the contract pays the provider or returns the day to the funder.`],
             ].map(([h, p], i) => (
@@ -448,7 +489,7 @@ export function TrialClient() {
                 <p className="mt-2 text-[15px] leading-relaxed text-muted">
                   {closed
                     ? "You marked today closed. It will be refunded without a strike against the provider."
-                    : "Run a test to mark the school present today, skip it to see a silent day, or mark it closed."}
+                    : "A passing test marks the school present today. Skip it to see an unreported day, or mark the day closed before any test runs."}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
@@ -460,12 +501,16 @@ export function TrialClient() {
                   </button>
                   <button
                     onClick={() => closeToday(day)}
-                    disabled={testing || !!closed}
+                    disabled={testing || !!closed || (todayState && "readings" in todayState ? todayState.readings > 0 : false)}
                     className="rounded-full border border-rule-strong px-6 py-3 text-[15px] font-semibold hover:border-ink hover:text-ink disabled:opacity-50"
                   >
                     Mark today closed
                   </button>
                 </div>
+                <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[13.5px] text-muted">
+                  <input type="checkbox" className="h-4 w-4 accent-[#0f1b24]" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
+                  Run a test automatically at the start of each school day (turn off to see a day go unreported)
+                </label>
               </>
             ) : (
               <>
@@ -481,7 +526,7 @@ export function TrialClient() {
                   </div>
                   <div>
                     <dt className="text-[12px] text-muted">Bond back to provider</dt>
-                    <dd className="font-serif text-[28px] font-semibold tnum">{term.state.ended ? usd(BigInt(t.bond), 0) : "…"}</dd>
+                    <dd className="font-serif text-[28px] font-semibold tnum">{term.state.ended ? usd(BigInt(t.bond) - BigInt(term.state.slashed), 0) : "…"}</dd>
                   </div>
                 </dl>
                 <div className="mt-5 flex flex-wrap gap-3">

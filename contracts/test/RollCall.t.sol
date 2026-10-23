@@ -19,8 +19,10 @@ contract RollCallTest is Test {
 
     uint32 constant ASN = 9829; // BSNL
     uint128 constant RATE = 12e6; // 12 tUSD a day
+    uint128 constant DEPOSIT = 3e6;
     uint16 constant DAYS = 10;
     uint32 constant DAY = 1 days;
+    uint32 constant SLOT = DAY / 3; // three slots a day
     uint32 constant LATE = 2 hours;
     uint32 constant CHALLENGE = 1 days;
     uint64 start;
@@ -30,7 +32,7 @@ contract RollCallTest is Test {
         vm.warp(1_790_000_000);
         probe = vm.addr(probeKey);
         usd = new TestDollar(house);
-        rc = new RollCall(usd, attester);
+        rc = new RollCall(usd);
         vm.startPrank(house);
         usd.mint(funder, 1_000_000e6);
         usd.mint(provider, 1_000_000e6);
@@ -47,6 +49,7 @@ contract RollCallTest is Test {
     function _terms() internal view returns (RollCall.Terms memory t) {
         t.provider = provider;
         t.probe = probe;
+        t.attester = attester;
         t.arbiter = arbiter;
         t.asn = ASN;
         t.minDownKbps = 10_000;
@@ -62,6 +65,7 @@ contract RollCallTest is Test {
         t.ratePerDay = RATE;
         t.bond = 50e6;
         t.slash = 20e6;
+        t.challengeDeposit = DEPOSIT;
     }
 
     function _open() internal returns (uint256 id) {
@@ -80,7 +84,7 @@ contract RollCallTest is Test {
             upKbps: 5_000,
             rttMs: 40,
             testId: keccak256(bytes(uuid)),
-            clientHash: keccak256("client")
+            clientHash: keccak256("salt:client")
         });
     }
 
@@ -105,6 +109,15 @@ contract RollCallTest is Test {
         ids[0] = uuid;
         vm.prank(attester);
         rc.record(rs, sigs, asns, ids);
+    }
+
+    /// One passing reading in each of the first `n` slots of `day` (warps to the end of the last one used).
+    function _passSlots(uint256 id, uint16 day, uint256 n) internal {
+        for (uint256 s; s < n; ++s) {
+            uint64 at = _dayStart(day) + uint64(s * SLOT + 600);
+            vm.warp(at);
+            _post(id, at, 30_000, ASN);
+        }
     }
 
     function _dayStart(uint16 d) internal view returns (uint64) {
@@ -147,6 +160,24 @@ contract RollCallTest is Test {
         rc.open(t, "x");
     }
 
+    function test_no_key_may_hold_two_roles() public {
+        RollCall.Terms memory t = _terms();
+        t.arbiter = funder; // the funder judging its own challenges
+        vm.prank(funder);
+        vm.expectRevert(abi.encodeWithSelector(RollCall.BadTerms.selector, "one key in two roles"));
+        rc.open(t, "x");
+        t = _terms();
+        t.attester = provider; // the provider vouching for its own network
+        vm.prank(funder);
+        vm.expectRevert(abi.encodeWithSelector(RollCall.BadTerms.selector, "one key in two roles"));
+        rc.open(t, "x");
+        t = _terms();
+        t.probe = attester;
+        vm.prank(funder);
+        vm.expectRevert(abi.encodeWithSelector(RollCall.BadTerms.selector, "one key in two roles"));
+        rc.open(t, "x");
+    }
+
     function test_accept_only_by_provider_before_start() public {
         vm.prank(funder);
         uint256 id = rc.open(_terms(), "x");
@@ -169,10 +200,9 @@ contract RollCallTest is Test {
 
     // ------------------------------------------------------------ readings
 
-    function test_present_day_pays_provider_in_full() public {
+    function test_a_pass_in_every_slot_pays_the_day_in_full() public {
         uint256 id = _open();
-        vm.warp(_dayStart(0) + 2 hours);
-        for (uint256 i; i < 3; ++i) _post(id, uint64(block.timestamp - i * 60), 25_000, ASN);
+        _passSlots(id, 0, 3);
         vm.warp(_settleTime(0));
         uint256 p0 = usd.balanceOf(provider);
         rc.settle(id, 0);
@@ -180,28 +210,66 @@ contract RollCallTest is Test {
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Present));
     }
 
+    function test_retrying_inside_one_slot_cannot_earn_a_full_day() public {
+        uint256 id = _open();
+        uint64 at = _dayStart(0) + 600;
+        vm.warp(at + 3600);
+        for (uint256 i; i < 10; ++i) _post(id, at + uint64(i * 60), 50_000, ASN); // ten passes, one slot
+        assertEq(rc.dayOf(id, 0).passes, 1);
+        vm.warp(_settleTime(0));
+        uint256 p0 = usd.balanceOf(provider);
+        rc.settle(id, 0);
+        assertEq(usd.balanceOf(provider) - p0, RATE / 3);
+        assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Partial));
+    }
+
     function test_partial_day_pays_pro_rata_and_refunds_the_rest() public {
         uint256 id = _open();
-        vm.warp(_dayStart(0) + 2 hours);
-        _post(id, uint64(block.timestamp), 25_000, ASN);
-        _post(id, uint64(block.timestamp - 60), 3_000, ASN); // too slow
+        _passSlots(id, 0, 2);
+        vm.warp(_dayStart(0) + 2 * SLOT + 600);
+        _post(id, uint64(block.timestamp), 3_000, ASN); // too slow in the last slot
         vm.warp(_settleTime(0));
         uint256 p0 = usd.balanceOf(provider);
         uint256 f0 = usd.balanceOf(funder);
         rc.settle(id, 0);
-        assertEq(usd.balanceOf(provider) - p0, RATE / 3);
-        assertEq(usd.balanceOf(funder) - f0, RATE - RATE / 3);
+        assertEq(usd.balanceOf(provider) - p0, (uint256(RATE) * 2) / 3);
+        assertEq(usd.balanceOf(funder) - f0, RATE - (uint256(RATE) * 2) / 3);
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Partial));
     }
 
     function test_reading_over_another_network_does_not_count() public {
         uint256 id = _open();
-        vm.warp(_dayStart(0) + 2 hours);
-        for (uint256 i; i < 3; ++i) _post(id, uint64(block.timestamp - i), 90_000, 55836); // a phone hotspot
+        for (uint256 s; s < 3; ++s) {
+            uint64 at = _dayStart(0) + uint64(s * SLOT + 600);
+            vm.warp(at);
+            _post(id, at, 90_000, 55836); // a phone hotspot
+        }
         vm.warp(_settleTime(0));
         rc.settle(id, 0);
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Absent));
         assertEq(rc.state(id).paid, 0);
+        assertEq(rc.state(id).strikes, 1);
+    }
+
+    function test_offline_report_makes_the_day_absent_not_silent() public {
+        uint256 id = _open();
+        uint64 at = _dayStart(0) + 3600;
+        vm.warp(_dayStart(1) + 600); // the line comes back the next day; the probe uploads what it saw
+        string memory uuid = "offline:1:1790007200";
+        RollCall.Reading memory r = RollCall.Reading({
+            termId: id,
+            takenAt: at,
+            downKbps: 0,
+            upKbps: 0,
+            rttMs: 0,
+            testId: keccak256(bytes(uuid)),
+            clientHash: bytes32(0)
+        });
+        _postOne(r, _sign(probeKey, r), 0, uuid);
+        vm.warp(_settleTime(0));
+        rc.settle(id, 0);
+        assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Absent));
+        assertEq(rc.state(id).strikes, 1);
     }
 
     function test_slow_latency_fails() public {
@@ -214,14 +282,14 @@ contract RollCallTest is Test {
         assertEq(rc.dayOf(id, 0).readings, 1);
     }
 
-    function test_silent_day_is_refunded_and_struck() public {
+    function test_silent_day_is_refunded_without_a_strike() public {
         uint256 id = _open();
         vm.warp(_settleTime(0));
         uint256 f0 = usd.balanceOf(funder);
         rc.settle(id, 0);
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Silent));
         assertEq(usd.balanceOf(funder) - f0, RATE);
-        assertEq(rc.state(id).strikes, 1);
+        assertEq(rc.state(id).strikes, 0);
     }
 
     function test_reading_signed_by_another_key_is_rejected() public {
@@ -262,7 +330,7 @@ contract RollCallTest is Test {
         _postOne(r, sig, ASN, uuid);
     }
 
-    function test_only_attester_records() public {
+    function test_only_the_terms_attester_records() public {
         uint256 id = _open();
         vm.warp(_dayStart(0) + 2 hours);
         (RollCall.Reading memory r, string memory uuid) = _reading(id, uint64(block.timestamp), 50_000);
@@ -274,15 +342,15 @@ contract RollCallTest is Test {
         sigs[0] = _sign(probeKey, r);
         asns[0] = ASN;
         ids[0] = uuid;
-        vm.prank(provider);
+        vm.prank(house);
         vm.expectRevert(RollCall.NotAttester.selector);
         rc.record(rs, sigs, asns, ids);
     }
 
-    function test_late_reading_is_rejected() public {
+    function test_late_reading_is_rejected_at_the_settle_boundary() public {
         uint256 id = _open();
         uint64 at = _dayStart(0) + 3 hours;
-        vm.warp(uint256(_dayStart(1)) + LATE + 1);
+        vm.warp(uint256(_dayStart(1)) + LATE);
         (RollCall.Reading memory r, string memory uuid) = _reading(id, at, 50_000);
         bytes memory sig = _sign(probeKey, r);
         vm.expectRevert(RollCall.TooLate.selector);
@@ -301,7 +369,7 @@ contract RollCallTest is Test {
     function test_future_reading_is_rejected() public {
         uint256 id = _open();
         vm.warp(_dayStart(0) + 2 hours);
-        (RollCall.Reading memory r, string memory uuid) = _reading(id, uint64(block.timestamp + 1 hours), 50_000);
+        (RollCall.Reading memory r, string memory uuid) = _reading(id, uint64(block.timestamp + 61), 50_000);
         bytes memory sig = _sign(probeKey, r);
         vm.expectRevert(RollCall.FromTheFuture.selector);
         _postOne(r, sig, ASN, uuid);
@@ -315,14 +383,17 @@ contract RollCallTest is Test {
         _postOne(r, sig, ASN, uuid);
     }
 
-    function test_day_caps_readings() public {
+    function test_cap_stops_failing_floods_but_never_a_needed_pass() public {
         uint256 id = _open();
-        vm.warp(_dayStart(0) + 2 hours);
-        for (uint256 i; i < 24; ++i) _post(id, uint64(block.timestamp - i), 50_000, ASN);
-        (RollCall.Reading memory r, string memory uuid) = _reading(id, uint64(block.timestamp), 50_000);
+        vm.warp(_dayStart(0) + 600);
+        for (uint256 i; i < 24; ++i) _post(id, uint64(block.timestamp - i), 1_000, ASN); // 24 failures
+        (RollCall.Reading memory r, string memory uuid) = _reading(id, uint64(block.timestamp), 1_000);
         bytes memory sig = _sign(probeKey, r);
         vm.expectRevert(RollCall.DayFull.selector);
         _postOne(r, sig, ASN, uuid);
+        // a pass the day still needs is accepted even after the cap
+        _passSlots(id, 0, 3);
+        assertEq(rc.dayOf(id, 0).passes, 3);
     }
 
     // ------------------------------------------------------------ settling
@@ -344,12 +415,35 @@ contract RollCallTest is Test {
 
     function test_closed_day_refunds_without_a_strike() public {
         uint256 id = _open();
-        vm.warp(_dayStart(0) + 1 hours);
-        rc.closeDay(id, 0, "Power cut", _closeSig(id, 0, "Power cut"));
+        vm.warp(_dayStart(0) - 600); // closed the evening before
+        rc.closeDay(id, 0, "Holiday", _closeSig(id, 0, "Holiday"));
         vm.warp(_settleTime(0));
         rc.settle(id, 0);
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Closed));
         assertEq(rc.state(id).strikes, 0);
+    }
+
+    function test_a_day_with_readings_cannot_be_closed() public {
+        uint256 id = _open();
+        _passSlots(id, 0, 1); // the provider earned a third of the day
+        bytes memory sig = _closeSig(id, 0, "Power cut");
+        vm.expectRevert(RollCall.DayHasReadings.selector);
+        rc.closeDay(id, 0, "Power cut", sig);
+        // a failed reading also locks the day: closing cannot erase a failure the probe saw
+        vm.warp(_dayStart(1) + 600);
+        _post(id, uint64(block.timestamp), 1_000, ASN);
+        sig = _closeSig(id, 1, "Power cut");
+        vm.expectRevert(RollCall.DayHasReadings.selector);
+        rc.closeDay(id, 1, "Power cut", sig);
+    }
+
+    function test_a_closure_cannot_be_replayed() public {
+        uint256 id = _open();
+        vm.warp(_dayStart(0) + 60);
+        bytes memory sig = _closeSig(id, 0, "Power cut");
+        rc.closeDay(id, 0, "Power cut", sig);
+        vm.expectRevert(RollCall.AlreadyClosed.selector);
+        rc.closeDay(id, 0, "Power cut", sig);
     }
 
     function test_day_cannot_be_closed_after_it_ends() public {
@@ -373,11 +467,7 @@ contract RollCallTest is Test {
         uint256 total = uint256(RATE) * DAYS + 50e6;
         uint256 f0 = usd.balanceOf(funder);
         uint256 p0 = usd.balanceOf(provider);
-        for (uint16 d; d < DAYS; ++d) {
-            vm.warp(_dayStart(d) + 3 hours);
-            uint256 n = d % 4; // 0..3 passing readings
-            for (uint256 i; i < n; ++i) _post(id, uint64(block.timestamp - i), 30_000, ASN);
-        }
+        for (uint16 d; d < DAYS; ++d) _passSlots(id, d, d % 4); // 0..3 slots
         vm.warp(_settleTime(DAYS - 1));
         rc.settle(id, DAYS - 1);
         RollCall.State memory st = rc.state(id);
@@ -389,41 +479,65 @@ contract RollCallTest is Test {
 
     // ---------------------------------------------------------- challenges
 
-    function test_upheld_challenge_voids_the_day_and_slashes() public {
+    function test_upheld_challenge_voids_the_day_slashes_and_returns_the_deposit() public {
         uint256 id = _open();
-        vm.warp(_dayStart(0) + 2 hours);
-        for (uint256 i; i < 3; ++i) _post(id, uint64(block.timestamp - i), 30_000, ASN);
+        _passSlots(id, 0, 3);
         vm.warp(_dayStart(1) + 1 hours);
+        uint256 f0 = usd.balanceOf(funder);
         vm.prank(funder);
         rc.challenge(id, 0, "Test ids not in the M-Lab archive");
+        assertEq(f0 - usd.balanceOf(funder), DEPOSIT);
         vm.warp(_settleTime(0));
-        rc.settle(id, 0); // challenged: waits
+        rc.settle(id, 0); // challenged: waits for the arbiter
         assertEq(rc.state(id).settledDays, 0);
-        uint256 f0 = usd.balanceOf(funder);
         vm.prank(arbiter);
         rc.resolve(id, 0, true);
         rc.settle(id, 0);
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Voided));
-        assertEq(usd.balanceOf(funder) - f0, RATE + 20e6);
+        assertEq(usd.balanceOf(funder) - (f0 - DEPOSIT), DEPOSIT + 20e6 + RATE);
         assertEq(rc.state(id).bondHeld, 30e6);
+        assertEq(rc.state(id).slashed, 20e6);
+        assertEq(rc.state(id).strikes, 1);
     }
 
-    function test_rejected_challenge_pays_as_measured() public {
+    function test_rejected_challenge_pays_as_measured_and_the_deposit_goes_to_the_provider() public {
         uint256 id = _open();
-        vm.warp(_dayStart(0) + 2 hours);
-        for (uint256 i; i < 3; ++i) _post(id, uint64(block.timestamp - i), 30_000, ASN);
+        _passSlots(id, 0, 3);
+        vm.warp(_dayStart(1) + 60);
         vm.prank(funder);
         rc.challenge(id, 0, "Looks too fast");
+        uint256 p0 = usd.balanceOf(provider);
         vm.prank(arbiter);
         rc.resolve(id, 0, false);
+        assertEq(usd.balanceOf(provider) - p0, DEPOSIT);
         vm.warp(_settleTime(0));
         rc.settle(id, 0);
         assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Present));
         assertEq(rc.state(id).bondHeld, 50e6);
     }
 
-    function test_challenge_window_closes() public {
+    function test_a_silent_arbiter_lets_the_challenge_lapse() public {
         uint256 id = _open();
+        _passSlots(id, 0, 3);
+        vm.warp(_dayStart(1) + 60);
+        vm.prank(funder);
+        rc.challenge(id, 0, "spot check");
+        vm.warp(_settleTime(0) + CHALLENGE - 1);
+        rc.settle(id, 0);
+        assertEq(rc.state(id).settledDays, 0); // still waiting
+        uint256 p0 = usd.balanceOf(provider);
+        vm.warp(_settleTime(0) + CHALLENGE);
+        rc.settle(id, 0);
+        assertEq(uint8(rc.dayOf(id, 0).mark), uint8(RollCall.Mark.Present));
+        assertEq(usd.balanceOf(provider) - p0, RATE + DEPOSIT);
+    }
+
+    function test_only_finished_days_can_be_challenged() public {
+        uint256 id = _open();
+        vm.warp(_dayStart(0) + 60);
+        vm.prank(funder);
+        vm.expectRevert(RollCall.DayNotOver.selector);
+        rc.challenge(id, 0, "early");
         vm.warp(_settleTime(0));
         vm.prank(funder);
         vm.expectRevert(RollCall.ChallengeClosed.selector);
@@ -432,6 +546,7 @@ contract RollCallTest is Test {
 
     function test_only_funder_challenges_and_only_arbiter_resolves() public {
         uint256 id = _open();
+        vm.warp(_dayStart(1));
         vm.expectRevert(RollCall.NotFunder.selector);
         rc.challenge(id, 0, "x");
         vm.prank(funder);
@@ -443,11 +558,19 @@ contract RollCallTest is Test {
 
     // --------------------------------------------------------- termination
 
+    function _absent(uint256 id, uint16 d) internal {
+        uint64 at = _dayStart(d) + 600;
+        vm.warp(at);
+        _post(id, at, 1_000, ASN);
+    }
+
     function test_terminate_after_strike_limit_returns_unserved_days() public {
         uint256 id = _open();
-        vm.warp(_settleTime(2)); // three silent days
+        for (uint16 d; d < 3; ++d) _absent(id, d);
+        vm.warp(_settleTime(2));
         rc.settle(id, 2);
         assertEq(rc.state(id).strikes, 3);
+        // day 3 has ended without a reading and its late window is over, so it goes back with the rest
         uint256 f0 = usd.balanceOf(funder);
         uint256 p0 = usd.balanceOf(provider);
         vm.prank(funder);
@@ -457,55 +580,76 @@ contract RollCallTest is Test {
         assertEq(usd.balanceOf(address(rc)), 0);
     }
 
-    function test_terminate_needs_strikes() public {
+    function test_terminate_waits_until_earned_days_are_settled() public {
         uint256 id = _open();
-        vm.warp(_settleTime(1));
-        rc.settle(id, 1);
+        for (uint16 d; d < 3; ++d) _absent(id, d);
+        _passSlots(id, 3, 3); // the line came back on day 3
+        vm.warp(_settleTime(2));
+        rc.settle(id, 2);
+        vm.warp(_dayStart(4) + 60); // day 3 has ended but cannot settle yet
+        vm.prank(funder);
+        vm.expectRevert(RollCall.SettleFirst.selector);
+        rc.terminate(id);
+        vm.warp(_settleTime(3));
+        rc.settle(id, 3);
+        assertEq(rc.state(id).strikes, 0); // the working day reset the run
         vm.prank(funder);
         vm.expectRevert(RollCall.NotEnoughStrikes.selector);
         rc.terminate(id);
     }
 
-    function test_a_working_day_resets_strikes() public {
+    function test_silent_days_do_not_end_a_term() public {
         uint256 id = _open();
-        vm.warp(_dayStart(2) + 2 hours);
-        _post(id, uint64(block.timestamp), 30_000, ASN);
-        vm.warp(_settleTime(2));
-        rc.settle(id, 2);
+        vm.warp(_settleTime(4));
+        rc.settle(id, 4);
         assertEq(rc.state(id).strikes, 0);
+        vm.prank(funder);
+        vm.expectRevert(RollCall.NotEnoughStrikes.selector);
+        rc.terminate(id);
     }
 
     // ----------------------------------------------------------------- fuzz
 
-    /// Any mix of readings, closures and challenges: money is neither created nor lost, and the
-    /// provider is never paid more than the rate for any day.
+    /// Any mix of readings, slots, networks, closures and challenges: money is neither created nor lost,
+    /// the provider is never paid more than the rate for any day, and paid + refunded covers every day.
     function testFuzz_money_is_conserved(uint256 seed) public {
         uint256 id = _open();
         uint256 f0 = usd.balanceOf(funder);
         uint256 p0 = usd.balanceOf(provider);
         for (uint16 d; d < DAYS; ++d) {
             uint256 x = uint256(keccak256(abi.encode(seed, d)));
-            vm.warp(_dayStart(d) + 1 hours);
-            if (x % 7 == 0) rc.closeDay(id, d, "Holiday", _closeSig(id, d, "Holiday"));
+            if (x % 7 == 0) {
+                vm.warp(_dayStart(d) - 60);
+                rc.closeDay(id, d, "Holiday", _closeSig(id, d, "Holiday"));
+                continue;
+            }
             uint256 n = (x >> 8) % 6;
             for (uint256 i; i < n; ++i) {
-                uint32 down = uint32(((x >> (16 + i * 8)) % 40) * 1_000);
-                uint32 asn = (x >> (64 + i)) % 5 == 0 ? 55836 : ASN;
-                _post(id, uint64(block.timestamp - i), down, asn);
+                uint64 at = _dayStart(d) + uint64(((x >> (16 + i * 8)) % 24) * 3600);
+                if (at < block.timestamp) at = uint64(block.timestamp);
+                if (at >= _dayStart(d) + DAY) break;
+                vm.warp(at);
+                uint32 down = uint32(((x >> (32 + i * 8)) % 40) * 1_000);
+                uint32 asn = (x >> (100 + i)) % 5 == 0 ? 55836 : ASN;
+                _post(id, at, down, asn);
             }
             if ((x >> 120) % 9 == 0) {
+                vm.warp(_dayStart(d) + DAY + 60);
                 vm.prank(funder);
                 rc.challenge(id, d, "spot check");
-                vm.prank(arbiter);
-                rc.resolve(id, d, (x >> 130) % 2 == 0);
+                if ((x >> 130) % 3 != 0) {
+                    vm.prank(arbiter);
+                    rc.resolve(id, d, (x >> 140) % 2 == 0);
+                }
             }
         }
-        vm.warp(_settleTime(DAYS - 1));
+        vm.warp(_settleTime(DAYS - 1) + CHALLENGE);
         rc.settle(id, DAYS - 1);
         RollCall.State memory st = rc.state(id);
         assertTrue(st.ended);
         assertEq(usd.balanceOf(address(rc)), 0);
         assertEq((usd.balanceOf(funder) - f0) + (usd.balanceOf(provider) - p0), uint256(RATE) * DAYS + 50e6);
+        assertEq(uint256(st.paid) + st.refunded, uint256(RATE) * DAYS);
         assertLe(st.paid, uint256(RATE) * DAYS);
     }
 }

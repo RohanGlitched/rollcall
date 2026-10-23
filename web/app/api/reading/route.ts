@@ -4,7 +4,7 @@ import { DOMAIN, READING_TYPES } from "@/lib/chain";
 import { recordReadings, testIdOf, clientHashOf, type ReadingInput } from "@/lib/server/actions";
 import { resolveCallerIp, callerIp, networkOf, shortHolder, isPrivate } from "@/lib/server/asn";
 import { plainError } from "@/lib/server/house";
-import { allow } from "@/lib/server/limit";
+import { allow, ipKey } from "@/lib/server/limit";
 import { readTerm, bust } from "@/lib/server/reads";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,9 @@ type Body = {
   downKbps: number;
   upKbps: number;
   rttMs: number;
-  uuid: string;
+  uuid: string; // download test id
+  upUuid?: string; // upload test id
+  salt: string; // the probe's own salt for hashing the client address
   client: string; // ip:port that M-Lab saw
   machine: string; // M-Lab host
   sig: Hex;
@@ -27,6 +29,8 @@ const u32 = (x: unknown) => Number.isInteger(x) && (x as number) >= 0 && (x as n
 
 function ipOf(client: string) {
   if (client.startsWith("[")) return client.slice(1, client.indexOf("]"));
+  const colons = (client.match(/:/g) || []).length;
+  if (colons > 1) return client; // a bare IPv6 address with no port
   const i = client.lastIndexOf(":");
   return i > 0 ? client.slice(0, i) : client;
 }
@@ -41,7 +45,7 @@ function ipOf(client: string) {
  */
 export async function POST(req: Request) {
   const ip = await resolveCallerIp(req);
-  if (!allow(`reading:${ip || "local"}`, 20, 600_000)) {
+  if (!allow(`reading:${ipKey(ip)}`, 20, 600_000)) {
     return NextResponse.json({ error: "Too many readings from this network in ten minutes. Wait a little and run it again." }, { status: 429 });
   }
   let b: Body;
@@ -53,8 +57,11 @@ export async function POST(req: Request) {
   if (!Number.isInteger(b.termId) || !u32(b.takenAt) || !u32(b.downKbps) || !u32(b.upKbps) || !u32(b.rttMs)) {
     return NextResponse.json({ error: "The reading is missing a number." }, { status: 400 });
   }
-  if (typeof b.uuid !== "string" || !UUID_RE.test(b.uuid)) {
+  if (typeof b.uuid !== "string" || !UUID_RE.test(b.uuid) || (b.upUuid !== undefined && (typeof b.upUuid !== "string" || !UUID_RE.test(b.upUuid)))) {
     return NextResponse.json({ error: "That is not an M-Lab ndt7 test id." }, { status: 400 });
+  }
+  if (typeof b.salt !== "string" || !/^[0-9a-f]{32,64}$/i.test(b.salt)) {
+    return NextResponse.json({ error: "The reading is missing the probe's salt." }, { status: 400 });
   }
   if (typeof b.machine !== "string" || !/^[a-z0-9.-]+\.measurement-lab\.org$/i.test(b.machine)) {
     return NextResponse.json({ error: "The test did not run against an M-Lab server." }, { status: 400 });
@@ -71,14 +78,15 @@ export async function POST(req: Request) {
   if (term.state.ended) return NextResponse.json({ error: "This term has ended." }, { status: 400 });
 
   const testIp = ipOf(b.client);
+  const ids = b.upUuid ? `${b.uuid}|${b.upUuid}` : b.uuid;
   const reading: ReadingInput = {
     termId: BigInt(b.termId),
     takenAt: BigInt(b.takenAt),
     downKbps: b.downKbps,
     upKbps: b.upKbps,
     rttMs: b.rttMs,
-    testId: testIdOf(b.uuid),
-    clientHash: clientHashOf(testIp),
+    testId: testIdOf(ids),
+    clientHash: clientHashOf(b.salt, testIp),
   };
   const signer = await recoverTypedDataAddress({
     domain: DOMAIN,
@@ -105,7 +113,7 @@ export async function POST(req: Request) {
       if (sender.asn !== testNet.asn) {
         return NextResponse.json(
           {
-            error: `The test ran over ${shortHolder(testNet.holder)} (AS${testNet.asn}) but was sent from AS${sender.asn}. A reading has to come from the network it measured.`,
+            error: `The test ran over ${shortHolder(testNet.holder)} (AS${testNet.asn}), but the reading was sent from another network (AS${sender.asn}). A reading has to come from the network it measured. A VPN, iCloud Private Relay or a campus proxy can split the two: turn it off for this page and run the test again.`,
           },
           { status: 403 },
         );
@@ -116,7 +124,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const tx = await recordReadings([reading], [b.sig], [testNet.asn], [b.uuid]);
+    const tx = await recordReadings([reading], [b.sig], [testNet.asn], [ids]);
     bust();
     const t = term.terms;
     const pass =

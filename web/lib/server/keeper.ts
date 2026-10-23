@@ -1,7 +1,8 @@
 import "server-only";
 import { type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { DOMAIN, READING_TYPES, CLOSURE_TYPES } from "../chain";
+import { rollCallAbi } from "../abi";
+import { DOMAIN, READING_TYPES, CLOSURE_TYPES, ROLLCALL, publicClient } from "../chain";
 import {
   SIM_SCHOOLS,
   SIM_DAYS,
@@ -10,6 +11,7 @@ import {
   SIM_RATE,
   SIM_BOND,
   SIM_SLASH,
+  SIM_DEPOSIT,
   SIM_STRIKES,
   SIM_LATE,
   SIM_CHALLENGE,
@@ -17,22 +19,15 @@ import {
   type SimSchool,
 } from "../schools";
 import { simProbeKey, plainError } from "./house";
-import {
-  openTerm,
-  recordReadings,
-  relayClose,
-  settle,
-  challenge,
-  resolve,
-  terminate,
-  settleableUpTo,
-  testIdOf,
-  type ReadingInput,
-} from "./actions";
+import { openTerm, recordReadings, relayClose, settle, challenge, resolve, terminate, settleableUpTo, testIdOf, type ReadingInput } from "./actions";
 import { termNames, readTerms, termCount, bust, type TermView } from "./reads";
 
-const OFFSETS = [600, 1500, 2400]; // readings at 10, 25 and 40 minutes into each simulated school day
+// One test in each third of a simulated school day (20-minute slots): at 10, 25 and 40 minutes in.
+const OFFSETS = [600, 1500, 2400];
 const HOTSPOT_ASN = 64999; // a phone hotspot on another network (simulated)
+
+type Pending = { r: ReadingInput; sig: Hex; asn: number; id: string };
+type Log = string[];
 
 // deterministic noise so a replay of the same day gives the same numbers
 function rand(seed: string): number {
@@ -48,22 +43,32 @@ function simReading(school: SimSchool, termId: number, day: number, k: number, p
     : { down: Math.round(1_500 + r("d") * 5_500), up: Math.round(400 + r("u") * 1_400), rtt: Math.round(60 + r("r") * 140) };
 }
 
-function passesFor(script: string, day: number) {
-  if (script === "ok" || script === "hotspot" || script === "fake") return 3;
-  if (script === "slow") return day % 2 === 0 ? 1 : 2;
-  return 0;
+/** How many of the three slots pass on a "slow" day. */
+const slowPasses = (day: number) => (day % 2 === 0 ? 1 : 2);
+
+/** The readings a simulated school's probe would have produced for one slot of one day, or null for none. */
+function plannedReading(school: SimSchool, t: TermView, day: number, k: number) {
+  const script = school.script(day);
+  if (script === "closed" || script === "dark") return null; // closed: no testing; dark: the device is off
+  const at = t.terms.start + day * t.terms.dayLength + OFFSETS[k] + Math.floor(rand(`${school.key}:${t.id}:${day}:${k}:t`) * 240);
+  const sim = `sim:${school.key}:${t.id}:${day}:${k}`;
+  if (script === "down") {
+    // the probe is on but cannot reach M-Lab: it signs an offline report
+    return { at, id: `offline:${sim}`, down: 0, up: 0, rtt: 0, asn: 0 };
+  }
+  const pass = script === "ok" || script === "hotspot" || script === "fake" || (script === "slow" && k < slowPasses(day));
+  const m = simReading(school, t.id, day, k, pass);
+  const id = script === "fake" ? `sim:unverifiable:${t.id}:${day}:${k}` : sim;
+  return { at, id, down: m.down, up: m.up, rtt: m.rtt, asn: script === "hotspot" ? HOTSPOT_ASN : school.asn };
 }
 
-type Log = string[];
-
 async function runSchool(school: SimSchool, idx: number, latest: TermView | undefined, now: number, log: Log, mayOpen: boolean) {
-  const key = simProbeKey(idx);
-  const probe = privateKeyToAccount(key);
+  const probe = privateKeyToAccount(simProbeKey(idx));
   // open the next term when there is none or the last one ended
   if (!latest || latest.state.ended) {
-    if (!mayOpen) return { readings: [] as { r: ReadingInput; sig: Hex; asn: number; id: string }[] };
+    if (!mayOpen) return;
     let start = Math.ceil(now / SIM_DAY_SECONDS) * SIM_DAY_SECONDS;
-    if (start - now < 90) start += SIM_DAY_SECONDS;
+    if (start - now < 120) start += SIM_DAY_SECONDS;
     const r = await openTerm({
       school: school.name,
       probe: probe.address,
@@ -79,18 +84,18 @@ async function runSchool(school: SimSchool, idx: number, latest: TermView | unde
       ratePerDay: SIM_RATE,
       bond: SIM_BOND,
       slash: SIM_SLASH,
+      challengeDeposit: SIM_DEPOSIT,
     });
     log.push(`${school.key}: opened term ${r.termId} starting ${new Date(start * 1000).toISOString()}`);
-    return { readings: [] as { r: ReadingInput; sig: Hex; asn: number; id: string }[] };
+    return;
   }
   const t = latest.terms;
-  const out: { r: ReadingInput; sig: Hex; asn: number; id: string }[] = [];
-  if (now < t.start) return { readings: out };
-  const day = Math.floor((now - t.start) / t.dayLength);
   const tid = latest.id;
+  if (now < t.start || latest.state.ended) return;
+  const today = Math.min(Math.floor((now - t.start) / t.dayLength), t.numDays);
 
-  // the day before: a "fake" day is challenged and upheld once its late window has passed
-  for (let d = Math.max(0, day - 1); d <= Math.min(day, t.numDays - 1); d++) {
+  // a "fake" day is challenged by the funder once it ends, and the arbiter upholds it
+  for (let d = Math.max(0, today - 1); d <= Math.min(today, t.numDays - 1); d++) {
     if (school.script(d) !== "fake") continue;
     const dd = latest.days[d];
     const dayEnd = t.start + (d + 1) * t.dayLength;
@@ -98,71 +103,81 @@ async function runSchool(school: SimSchool, idx: number, latest: TermView | unde
     let challenged = dd.challenged;
     if (!challenged && now < dayEnd + t.lateWindow + t.challengeWindow) {
       await challenge(tid, d, "Spot check: these 3 test ids are not in M-Lab's public archive (ndt7 tables).");
-      log.push(`${school.key}: challenged day ${d}`);
+      log.push(`${school.key}: funder challenged day ${d + 1}`);
       challenged = true;
     }
     if (challenged) {
       await resolve(tid, d, true);
-      log.push(`${school.key}: challenge on day ${d} upheld`);
+      log.push(`${school.key}: arbiter upheld the challenge on day ${d + 1}`);
     }
   }
 
-  if (day >= t.numDays || latest.state.ended) return { readings: out };
-  const script = school.script(day);
-  const dayStart = t.start + day * t.dayLength;
-  const dd = latest.days[day];
+  // close today before any testing, if the school is shut
+  if (today < t.numDays && school.script(today) === "closed" && !latest.days[today].closed && latest.days[today].readings === 0) {
+    const reason = school.closeReason?.(today) ?? "School closed";
+    const sig = await probe.signTypedData({
+      domain: DOMAIN,
+      types: CLOSURE_TYPES,
+      primaryType: "Closure",
+      message: { termId: BigInt(tid), day: today, reason },
+    });
+    await relayClose(tid, today, reason, sig);
+    log.push(`${school.key}: day ${today + 1} closed (${reason})`);
+  }
 
-  if (script === "closed") {
-    if (!dd.closed) {
-      const reason = school.closeReason?.(day) ?? "School closed";
-      const sig = await probe.signTypedData({
-        domain: DOMAIN,
-        types: CLOSURE_TYPES,
-        primaryType: "Closure",
-        message: { termId: BigInt(tid), day, reason },
-      });
-      await relayClose(tid, day, reason, sig);
-      log.push(`${school.key}: closed day ${day}`);
+  // readings due today, and any the previous day missed while its late window is open
+  const due: Pending[] = [];
+  for (let d = Math.max(0, today - 1); d <= Math.min(today, t.numDays - 1); d++) {
+    if (now >= t.start + (d + 1) * t.dayLength + t.lateWindow - 5) continue;
+    for (let k = 0; k < OFFSETS.length; k++) {
+      const p = plannedReading(school, latest, d, k);
+      if (!p || p.at > now) continue;
+      const r: ReadingInput = {
+        termId: BigInt(tid),
+        takenAt: BigInt(p.at),
+        downKbps: p.down,
+        upKbps: p.up,
+        rttMs: p.rtt,
+        testId: testIdOf(p.id),
+        clientHash: testIdOf(`sim-client:${school.key}`),
+      };
+      due.push({ r, sig: "0x", asn: p.asn, id: p.id });
     }
-    return { readings: out };
   }
-  if (script === "down") return { readings: out };
-
-  const passes = passesFor(script, day);
-  for (let k = dd.readings; k < OFFSETS.length; k++) {
-    const at = dayStart + OFFSETS[k] + Math.floor(rand(`${school.key}:${tid}:${day}:${k}:t`) * 240);
-    if (at > now) break;
-    const m = simReading(school, tid, day, k, k < passes);
-    const uuid = script === "fake" ? `sim:unverifiable:${tid}:${day}:${k}` : `sim:${school.key}:${tid}:${day}:${k}`;
-    const r: ReadingInput = {
-      termId: BigInt(tid),
-      takenAt: BigInt(at),
-      downKbps: m.down,
-      upKbps: m.up,
-      rttMs: m.rtt,
-      testId: testIdOf(uuid),
-      clientHash: testIdOf(`sim-client:${school.key}`),
-    };
-    const sig = await probe.signTypedData({ domain: DOMAIN, types: READING_TYPES, primaryType: "Reading", message: r });
-    out.push({ r, sig, asn: script === "hotspot" ? HOTSPOT_ASN : school.asn, id: uuid });
+  if (!due.length) return;
+  const used = await publicClient.multicall({
+    contracts: due.map((p) => ({ address: ROLLCALL, abi: rollCallAbi, functionName: "testUsed", args: [p.r.testId] }) as const),
+    allowFailure: false,
+  });
+  const fresh = due.filter((_, i) => !used[i]);
+  if (!fresh.length) return;
+  for (const p of fresh) {
+    p.sig = await probe.signTypedData({ domain: DOMAIN, types: READING_TYPES, primaryType: "Reading", message: p.r });
   }
-  return { readings: out };
+  await recordReadings(
+    fresh.map((p) => p.r),
+    fresh.map((p) => p.sig),
+    fresh.map((p) => p.asn),
+    fresh.map((p) => p.id),
+  );
+  log.push(`${school.key}: recorded ${fresh.length} reading${fresh.length > 1 ? "s" : ""}`);
 }
 
-async function settleAndEnd(term: TermView, now: number, log: Log) {
+async function settleTerm(term: TermView, now: number, log: Log) {
   if (!term.state.accepted || term.state.ended) return;
   const upTo = settleableUpTo(term.terms, now);
-  // simulated schools settle two days per transaction to halve the house's gas; the last day always settles
-  const batch = term.kind === "sim" && upTo < term.terms.numDays - 1 ? 1 : 0;
-  if (upTo >= term.state.nextToSettle + batch) {
-    const next = term.days[term.state.nextToSettle];
-    if (next?.challenged) return; // waits for the arbiter
-    await settle(term.id, upTo);
-    log.push(`term ${term.id}: settled through day ${upTo}`);
-  }
+  // simulated schools settle two days per transaction to halve the gas; visitor terms settle once, at the end
+  // (their pages settle each day while a visitor watches); the last day always settles
+  const last = term.terms.numDays - 1;
+  const need = term.kind === "sim" && upTo < last ? term.state.nextToSettle + 1 : term.kind === "trial" ? last : term.state.nextToSettle;
+  if (upTo < need) return;
+  const next = term.days[term.state.nextToSettle];
+  if (next?.challenged && now < term.terms.start + (term.state.nextToSettle + 1) * term.terms.dayLength + term.terms.lateWindow + 2 * term.terms.challengeWindow) return;
+  await settle(term.id, upTo);
+  log.push(`term ${term.id}: settled through day ${upTo + 1}`);
 }
 
-/** One keeper tick. Safe to run every few minutes and from several places at once. */
+/** One keeper tick. Safe to run every few minutes and from more than one place. */
 export async function keeperTick(opts: { sims?: boolean } = {}) {
   const now = Math.floor(Date.now() / 1000);
   const log: Log = [];
@@ -172,51 +187,42 @@ export async function keeperTick(opts: { sims?: boolean } = {}) {
   // if the log index has not caught up with the chain, never open a term: it might already exist
   const mayOpen = names.size >= count;
   const latestByName = new Map<string, number>();
-  const openIds: number[] = [];
-  for (const [id, n] of names) {
-    if ((latestByName.get(n.school) ?? 0) < id) latestByName.set(n.school, id);
-    openIds.push(id);
-  }
-  const terms = await readTerms(openIds.filter((id) => id > Math.max(0, names.size - 400)));
+  for (const [id, n] of names) if ((latestByName.get(n.school) ?? 0) < id) latestByName.set(n.school, id);
+  const recent = [...names.keys()].filter((id) => id > count - 300);
+  const terms = await readTerms(recent);
   const byId = new Map(terms.map((t) => [t.id, t]));
 
   if (opts.sims !== false) {
-    const batch: { r: ReadingInput; sig: Hex; asn: number; id: string }[] = [];
     for (let i = 0; i < SIM_SCHOOLS.length; i++) {
       const s = SIM_SCHOOLS[i];
       const id = latestByName.get(s.name);
       try {
-        const { readings } = await runSchool(s, i, id ? byId.get(id) : undefined, now, log, mayOpen);
-        batch.push(...readings);
+        await runSchool(s, i, id ? byId.get(id) : undefined, now, log, mayOpen);
       } catch (e) {
         errors.push(`${s.key}: ${plainError(e)}`);
-      }
-    }
-    if (batch.length) {
-      try {
-        await recordReadings(
-          batch.map((b) => b.r),
-          batch.map((b) => b.sig),
-          batch.map((b) => b.asn),
-          batch.map((b) => b.id),
-        );
-        log.push(`recorded ${batch.length} simulated readings`);
-      } catch (e) {
-        errors.push(`readings: ${plainError(e)}`);
       }
     }
   }
 
   bust();
-  const fresh = await readTerms(terms.filter((t) => !t.state.ended && t.state.accepted).map((t) => t.id));
-  for (const t of fresh) {
+  const open = (await readTerms(terms.filter((t) => !t.state.ended && t.state.accepted).map((t) => t.id))).sort(
+    (a, b) => (a.kind === "sim" ? 0 : 1) - (b.kind === "sim" ? 0 : 1) || a.id - b.id,
+  );
+  const deadline = Date.now() + 40_000; // stay inside the function's time limit
+  for (const t of open) {
+    if (Date.now() > deadline) {
+      log.push("time limit reached; the rest settle next tick");
+      break;
+    }
     try {
-      await settleAndEnd(t, now, log);
+      await settleTerm(t, now, log);
       if (t.kind === "sim") {
         const after = (await readTerms([t.id]))[0];
         if (after && !after.state.ended && after.terms.strikeLimit > 0 && after.state.strikes >= after.terms.strikeLimit) {
-          await terminate(t.id);
-          log.push(`term ${t.id}: funder ended the term after ${after.state.strikes} missed days`);
+          await terminate(t.id).then(
+            () => log.push(`term ${t.id}: the funder ended the term after ${after.state.strikes} absent days in a row`),
+            (e) => log.push(`term ${t.id}: not ended yet (${plainError(e)})`),
+          );
         }
       }
     } catch (e) {

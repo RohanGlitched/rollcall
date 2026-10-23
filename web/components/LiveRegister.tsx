@@ -78,7 +78,9 @@ export function LiveRegister() {
     <div>
       <div className="mb-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <p className="text-[15px] text-glass">
-          {t0 && day >= 0 && day < t0.terms.numDays ? (
+          {t0?.showingPrevious ? (
+            <>A new term began less than six hours ago, so this is the one that just ended. The new strands appear here at six hours.</>
+          ) : t0 && day >= 0 && day < t0.terms.numDays ? (
             <>
               School day {day + 1} of {t0.terms.numDays} is running. It closes in <span className="font-semibold tnum">{ago(nextIn)}</span>.
             </>

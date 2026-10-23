@@ -3,7 +3,7 @@ import { isAddress, type Address } from "viem";
 import { openTerm } from "@/lib/server/actions";
 import { resolveCallerIp, callerIp, networkOf, shortHolder } from "@/lib/server/asn";
 import { plainError } from "@/lib/server/house";
-import { allow } from "@/lib/server/limit";
+import { allow, ipKey } from "@/lib/server/limit";
 import { gasState } from "@/lib/server/health";
 import { TRIAL, TRIAL_PREFIX } from "@/lib/schools";
 import { bust } from "@/lib/server/reads";
@@ -16,7 +16,7 @@ const OTHER_ASN = 64999;
 /** Opens a visitor term: the house funds three two-minute school days for the visitor's probe key. */
 export async function POST(req: Request) {
   const ip = (await resolveCallerIp(req)) || "local";
-  if (!allow(`trial:${ip}`, 4, 3600_000) || !allow("trial:all", 120, 3600_000)) {
+  if (!allow(`trial:${ipKey(ip)}`, 4, 3600_000) || !allow("trial:all", 120, 3600_000)) {
     return NextResponse.json({ error: "Too many visitor terms from this network in the last hour. Open an existing one from the register." }, { status: 429 });
   }
   let body: { probe?: string; contract?: "mine" | "other" };
@@ -58,6 +58,7 @@ export async function POST(req: Request) {
       ratePerDay: TRIAL.rate,
       bond: TRIAL.bond,
       slash: TRIAL.slash,
+      challengeDeposit: TRIAL.challengeDeposit,
     });
     bust();
     return NextResponse.json({ ...r, asn, holder, start: now + TRIAL.leadSeconds });

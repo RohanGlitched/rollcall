@@ -38,89 +38,104 @@ export default function How() {
       />
       <main className="mx-auto max-w-[1280px] px-4 pt-6 sm:px-8">
         <div className="mt-6">
-          <Rule n={1} title="A term is paid for up front">
+          <Rule n={1} title="A term is paid for up front, by four separate keys">
             <p>
-              The funder opens a term with the school’s probe key, the provider’s payout address, the contracted network,
-              the pass bar and the daily rate. The contract takes the whole term’s money at once (<span className={code}>rate × days</span>),
-              so the provider can see it exists before doing any work.
+              The funder opens a term naming the school’s probe key, the provider, the attester, the arbiter, the contracted
+              network, the pass bar and the daily rate. The contract takes the whole term’s money at once
+              (<span className={code}>rate × days</span>), so the provider can see it exists before doing any work. It refuses a
+              term where one key holds two roles, so nobody can be both the judge and a party.
             </p>
             <p>
-              The provider accepts by posting a bond before the first day starts. Until it does, the funder can take the
-              money back. Nothing is paid for days before the provider accepted.
+              The provider accepts by posting a bond before the first day starts. Until it does, the funder can take the money back.
             </p>
           </Rule>
 
           <Rule n={2} title="A reading needs two signatures">
             <p>
-              The probe in the school signs the reading: when it was taken, download, upload, round-trip time, a hash of the
-              M-Lab test id and a hash of the client address. It signs with EIP-712, so the numbers are readable in any wallet and
-              bound to this contract on this chain.
+              The probe in the school signs the reading with EIP-712: when it was taken, download, upload, round-trip time, a hash
+              of the M-Lab test ids (download and upload) and a salted hash of the client address. Change one digit and the
+              signature breaks.
             </p>
             <p>
-              The attester submits it, adding one fact the probe cannot vouch for: the network number (ASN) of the address
-              M-Lab saw. It looks that up in RIPEstat, and refuses a reading that was sent from a different network than the
-              one the test ran over. The contract checks the probe’s signature and that the full M-Lab test id matches the
-              signed hash. A test id can be used once, ever.
+              The term’s attester submits it, adding one fact the probe cannot vouch for: the network number (ASN) of the address
+              M-Lab saw, looked up in RIPEstat. It refuses a reading sent from a different network than the one the test ran over.
+              The contract checks the probe’s signature and that the full test ids match the signed hash. A test can be used once, ever.
             </p>
           </Rule>
 
-          <Rule n={3} title="A reading passes or fails on its own">
+          <Rule n={3} title="A day is split into parts, and each part has to pass">
             <p>
-              A reading passes when all four hold: it ran over the contracted network, download is at least the bar,
-              upload is at least the bar, and the round trip is at most the bar. The result is written on chain next to the
-              reading, with the full M-Lab test id, in the <span className={code}>ReadingRecorded</span> event.
+              A reading passes when all four hold: it ran over the contracted network, download and upload are at least the bar,
+              and the round trip is at most the bar. The result goes on chain with the full M-Lab test ids in the{" "}
+              <span className={code}>ReadingRecorded</span> event.
             </p>
-            <p>A school day takes at most 24 readings, so a probe cannot flood a day to drown out failures.</p>
+            <p>
+              The school day is divided into as many equal parts as the term requires passes, and only the first pass in each part
+              counts. A line that works for half an hour cannot earn a whole day by retrying.
+            </p>
+            <p>
+              A day holds at most 24 failing readings, so a probe cannot flood a day, but a pass the day still needs is always accepted.
+            </p>
           </Rule>
 
-          <Rule n={4} title="A day closes, waits, then settles">
+          <Rule n={4} title="A probe that cannot get online says so">
             <p>
-              A reading counts for the school day it was taken in, and may arrive until the late window after that day ends
-              (a probe that lost its link can catch up). Then the challenge window runs. After both, anyone can settle the
-              day; the demo’s house does it so visitors never need gas.
+              When the line is dead the probe cannot reach M-Lab, so it signs an offline report instead, with zero speeds and a test
+              id that starts with <span className={code}>offline:</span>, and sends it when it can, inside the late window. That
+              makes the difference between a dead line and a dead device visible on chain.
             </p>
-            <p>Days settle strictly in order, so a run of missed days is always counted correctly.</p>
           </Rule>
 
-          <Rule n={5} title="The mark decides the money">
+          <Rule n={5} title="A day closes, waits, then settles">
+            <p>
+              A reading counts for the school day it was taken in, and may arrive until the late window after that day ends. Then
+              the challenge window runs. After both, anyone can settle the day; the demo’s attester does it so visitors never need gas.
+              Days settle strictly in order, so runs of failures are counted correctly.
+            </p>
+          </Rule>
+
+          <Rule n={6} title="The mark decides the money">
             <ul className="space-y-2">
-              <li><b className="text-ink">Present</b>: at least the required number of passing readings. The day is paid in full.</li>
-              <li><b className="text-amber">Partial</b>: some passing readings. The provider gets that share of the day; the rest goes back.</li>
-              <li><b className="text-red">Absent</b>: readings arrived, none passed. The day goes back to the funder.</li>
-              <li><b className="text-red">Silent</b>: no reading arrived at all. A dead line cannot report, so silence is treated as absence.</li>
-              <li><b className="text-cloth">Closed</b>: the school said so before the day ended. The day goes back, and it does not count against the provider.</li>
-              <li><b className="text-red">Voided</b>: a challenge was upheld. The day goes back and the provider loses part of its bond.</li>
+              <li><b className="text-paid">Present</b>: a pass in every part of the day. Paid in full.</li>
+              <li><b className="text-part">Partial</b>: passes in some parts. The provider gets that share; the rest goes back.</li>
+              <li><b className="text-fault">Absent</b>: the probe reported (failed tests or offline reports) and nothing passed. Refunded, and a strike against the provider.</li>
+              <li><b className="text-fault">Silent</b>: nothing reported at all, which is what a power cut or a switched-off device looks like. Refunded, no strike.</li>
+              <li><b className="text-sleeve">Closed</b>: the school declared it before any test that day. Refunded, no strike.</li>
+              <li><b className="text-fault">Voided</b>: a challenge was upheld. Refunded, a strike, and part of the bond goes to the funder.</li>
             </ul>
           </Rule>
 
-          <Rule n={6} title="Only the school can close a day, and only in advance">
+          <Rule n={7} title="Only the school can close a day, and only before it tests">
             <p>
-              Holidays, exams, floods and power cuts are not the provider’s fault. The probe key signs a closure with a reason, and it
-              must arrive before the day ends, so nobody can turn a failed day into a closed one afterwards.
+              Holidays, exams and floods are not the provider’s fault. The probe key signs a closure with a reason. It is accepted
+              only while the day has no reading at all, so a closure can neither erase a failure the probe saw nor take back a pass
+              the provider earned, and the same closure cannot be sent twice.
             </p>
           </Rule>
 
-          <Rule n={7} title="The funder can challenge; an arbiter decides">
+          <Rule n={8} title="The funder can challenge; the arbiter decides, or the challenge lapses">
             <p>
-              Before a day settles, the funder can challenge it, for example when its M-Lab test ids are missing from M-Lab’s
-              public archive or its speeds there differ from what was signed. The day then waits for the arbiter. Upheld:
-              the day is voided and the bond is cut by the agreed amount, paid to the funder. Rejected: the day settles as measured.
+              Once a day has ended and before it settles, the funder can challenge it, for example when its test ids are missing from
+              M-Lab’s public archive, by staking the term’s challenge deposit. Upheld: the day is voided, the deposit comes back and
+              the bond is cut. Rejected: the deposit goes to the provider. If the arbiter stays silent for one more challenge window,
+              the challenge lapses, the day settles as measured and the deposit goes to the provider, so nobody can freeze a term.
             </p>
           </Rule>
 
-          <Rule n={8} title="Repeated failure ends the term">
+          <Rule n={9} title="Repeated failure ends the term">
             <p>
-              Absent, silent and voided days count as strikes; a working day resets the count; closed days leave it alone.
-              After the agreed number of strikes in a row, the funder can end the term: every unserved day comes back, plus a
-              cut of the bond. The rest of the bond goes back to the provider.
+              Absent and voided days are strikes; a paid day resets the count; silent and closed days leave it alone. After the agreed
+              number of strikes in a row, the funder can end the term: unserved days come back with a cut of the bond, the rest of the
+              bond goes back to the provider. A finished day with any passing test must settle first, so a day the provider earned is
+              always paid.
             </p>
           </Rule>
 
-          <Rule n={9} title="Money is never created or lost">
+          <Rule n={10} title="Money is never created or lost">
             <p>
-              Every unit the contract holds is either still owed for a future day, held as bond, paid to the provider, or
-              returned to the funder. A fuzz test runs 500 random terms (random speeds, networks, closures and challenges) and
-              checks this after each one, along with “the provider is never paid more than the rate for any day”.
+              Every unit the contract holds is owed for a future day, held as bond, or held as a challenge deposit. A fuzz test runs 500
+              random terms (random speeds, networks, parts of the day, closures, challenges and lapses) and checks after each that
+              nothing was created or lost, that paid plus refunded covers every day, and that no day paid more than its rate.
             </p>
           </Rule>
         </div>
@@ -128,11 +143,11 @@ export default function How() {
         <section className="mt-6 rounded-md border border-rule bg-sheet p-6 sm:p-8">
           <h2 className="text-[24px] font-semibold">What the demo simplifies</h2>
           <ul className="mt-4 max-w-3xl list-disc space-y-2 pl-5 text-[15px] leading-relaxed">
-            <li>One house key plays funder, arbiter and attester, and a second plays the provider. In a real term these are four organisations.</li>
-            <li>A single attester. The design allows a quorum of attesters, each checking the network independently; that is the next step.</li>
+            <li>The four roles are four separate keys, but all four are held by this demo’s server. In a real term they are four organisations.</li>
+            <li>One attester per term. A quorum of attesters, each checking the network independently, is the next step.</li>
             <li>The visitor’s probe key lives in browser storage. A school device would keep it in hardware.</li>
             <li>The test dollar has no value and anyone can see its owner mints it for the demo.</li>
-            <li>Speeds are what M-Lab’s server counted, sent by the probe. Only an archive check proves they were not edited before signing, which is why challenges exist.</li>
+            <li>Speeds are what M-Lab’s server counted, relayed by the probe (falling back to the browser’s own count if the server sends none). Only an archive check proves they were not edited before signing, which is why challenges exist.</li>
           </ul>
           <p className="mt-5 text-[15px]">
             <Link href="/verify" className="font-semibold text-ink underline underline-offset-4">Check any of this yourself</Link>

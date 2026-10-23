@@ -26,6 +26,11 @@ export async function POST(req: Request) {
   }
   const term = await readTerm(b.termId).catch(() => null);
   if (!term || term.kind === "sim") return NextResponse.json({ error: "That term cannot be closed from here." }, { status: 400 });
+  const day = term.days[b.day];
+  const dayEnd = term.terms.start + (b.day + 1) * term.terms.dayLength;
+  if (!day || term.state.ended || Date.now() / 1000 >= dayEnd) return NextResponse.json({ error: "That school day is over." }, { status: 400 });
+  if (day.closed) return NextResponse.json({ error: "This day is already marked closed." }, { status: 400 });
+  if (day.readings > 0) return NextResponse.json({ error: "This day already has a reading, so it can no longer be marked closed." }, { status: 400 });
   try {
     const tx = await relayClose(b.termId, b.day, reason, b.sig);
     bust();

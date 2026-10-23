@@ -65,7 +65,7 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
           ["Locked at the start", usd(total.toString(), 0), "text-graphite"],
           ["Paid to the provider", usd(term.state.paid, 0), "text-ink"],
           ["Returned to the funder", usd(term.state.refunded, 0), "text-red"],
-          ["Bond held", usd(term.state.bondHeld, 0), "text-cloth"],
+          [Number(term.state.slashed) ? "Bond held (cut so far)" : "Bond held", Number(term.state.slashed) ? `${usd(term.state.bondHeld, 0)} (−${usd(term.state.slashed, 0)})` : usd(term.state.bondHeld, 0), "text-cloth"],
         ].map(([l, v, c]) => (
           <div key={l} className="bg-sheet px-5 py-5">
             <dt className="text-[13px] text-muted">{l}</dt>
@@ -85,13 +85,14 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
               {[
                 ["Contracted network", `AS${t.asn}${sim ? `, ${sim.provider}` : ""}`],
                 ["A test passes at", `${t.minDownKbps / 1000} Mbps down, ${t.minUpKbps / 1000} Mbps up, ${t.maxRttMs} ms or less`],
-                ["Full pay for a day", `${t.required} passing test${t.required > 1 ? "s" : ""}; fewer pays that share of the day`],
+                ["Full pay for a day", t.required > 1 ? `a pass in each of ${t.required} equal parts of the day; fewer pays that share` : "one passing test"],
                 ["Pay per school day", `${usd(t.ratePerDay)} tUSD`],
                 ["School days", `${t.numDays}, each lasting ${dayLabel}`],
                 ["First day starts", fmtTime(t.start, t.dayLength)],
                 ["Late readings accepted for", `${t.lateWindow} s after a day ends`],
                 ["Funder may challenge for", `${t.challengeWindow} s after that`],
-                ["Provider bond", `${usd(t.bond, 0)} tUSD, ${usd(t.slash, 0)} cut per upheld challenge`],
+                ["Provider bond", `${usd(t.bond, 0)} tUSD, ${usd(t.slash, 0)} cut per upheld challenge or early end`],
+                ["Challenge deposit", Number(t.challengeDeposit) ? `${usd(t.challengeDeposit, 0)} tUSD, paid to the provider if a challenge fails` : "none"],
                 ["Funder may end the term after", t.strikeLimit ? `${t.strikeLimit} missed days in a row` : "never"],
               ].map(([k, v]) => (
                 <tr key={k} className="border-b border-rule align-top">
@@ -107,6 +108,7 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
               ["Funder", t.funder],
               ["Provider", t.provider],
               ["School probe", t.probe],
+              ["Attester", t.attester],
               ["Arbiter", t.arbiter],
             ].map(([k, a]) => (
               <li key={k} className="flex flex-wrap justify-between gap-2">
@@ -192,11 +194,11 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
                     <td className={`px-4 py-2 ${r.asn === t.asn ? "" : "text-red"}`}>AS{r.asn}</td>
                     <td className={`px-4 py-2 font-semibold ${r.pass ? "text-ink" : "text-red"}`}>{r.pass ? "passed" : "failed"}</td>
                     <td className="max-w-[260px] truncate px-4 py-2 font-mono text-[12px]">
-                      {r.testId.startsWith("sim:") ? (
+                      {r.testId.startsWith("sim:") || r.testId.startsWith("offline:") ? (
                         <span className="text-muted">{r.testId}</span>
                       ) : (
                         <a className="text-ink underline" href={`/verify?test=${encodeURIComponent(r.testId)}`}>
-                          {r.testId}
+                          {r.testId.split("|")[0]}
                         </a>
                       )}{" "}
                       <a className="text-muted underline" href={txUrl(r.tx)}>tx</a>

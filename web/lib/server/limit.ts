@@ -13,6 +13,13 @@ export function allow(key: string, max: number, windowMs: number): boolean {
   }
   arr.push(now);
   hits.set(key, arr);
-  if (hits.size > 5000) hits.clear();
+  if (hits.size > 5000) for (const k of hits.keys()) if (!k.endsWith(":all")) hits.delete(k);
   return true;
+}
+
+/** Rate-limit key for an address: IPv6 by its /64 (one household or phone), IPv4 as is. */
+export function ipKey(ip: string): string {
+  if (!ip.includes(":")) return ip || "local";
+  const parts = ip.split(":");
+  return parts.slice(0, 4).join(":") + "::/64";
 }

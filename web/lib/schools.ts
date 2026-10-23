@@ -111,7 +111,7 @@ export const TRIAL_PREFIX = "Visitor school";
 export type TermKind = "sim" | "real" | "trial" | "other";
 export function kindOf(name: string): TermKind {
   if (simByName(name)) return "sim";
-  if (name === REAL_PROBE_NAME) return "real";
+  if (name === REAL_PROBE_NAME || /^Probe \d+: /.test(name)) return "real";
   if (name.startsWith(TRIAL_PREFIX)) return "trial";
   return "other";
 }
@@ -141,10 +141,11 @@ export const FIBRE: Record<string, string> = {
   violet: "#a585ff",
   rose: "#ff8fb8",
   aqua: "#34d1dd",
+  yellow: "#ffd23f",
 };
 /** Strand colour for a term: simulated schools keep theirs, Probe 0 is aqua, visitors are rose. */
 export function fibreOf(name: string): { name: string; hex: string } {
   const sim = simByName(name);
-  const n = sim ? sim.fibre : name === REAL_PROBE_NAME ? "aqua" : "rose";
+  const n = sim ? sim.fibre : name === REAL_PROBE_NAME ? "aqua" : /^Probe \d+: /.test(name) ? "yellow" : "rose";
   return { name: n, hex: FIBRE[n] };
 }

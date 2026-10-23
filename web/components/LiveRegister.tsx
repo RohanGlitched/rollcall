@@ -159,13 +159,13 @@ export function VisitorTerms() {
 
 export function ProbeZeroRow() {
   const { data, now } = useOverview();
-  const t = data?.terms.find((x) => x.school === REAL_PROBE_NAME);
-  if (!t)
-    return <p className="rounded-xl border border-dashed border-line-strong px-6 py-8 text-[15px] text-muted">Probe 0’s term starts at midnight IST.</p>;
-  const shown = { ...t, days: t.days.slice(0, Math.min(t.days.length, Math.max(14, currentDay(t, now) + 4))) };
+  const probes = (data?.terms ?? []).filter((x) => x.kind === "real").sort((a, b) => a.school.localeCompare(b.school));
+  if (!probes.length)
+    return <p className="rounded-xl border border-dashed border-line-strong px-6 py-8 text-[15px] text-muted">The real probes’ terms start at midnight IST.</p>;
+  const shown = probes.map((t) => ({ ...t, days: t.days.slice(0, Math.min(t.days.length, Math.max(14, currentDay(t, now) + 4))) }));
   return (
     <div className="duct rounded-2xl p-5 sm:p-7">
-      <Strands terms={[shown]} now={now} tone="duct" />
+      <Strands terms={shown} now={now} tone="duct" />
     </div>
   );
 }

@@ -208,8 +208,8 @@ export default async function Home() {
             </div>
             <div id="probe-zero">
               <Head
-                title="Probe 0 keeps the real calendar"
-                lede="A server in a data centre plays a school on fibre: four real M-Lab tests a day, a sixty-day term. Its test ids can be looked up in M-Lab’s archive."
+                title="Two real probes keep the real calendar"
+                lede="Probe 0 is a server in a data centre, the easy case: four real M-Lab tests a day. Probe 1 is a laptop on a home broadband line, which goes off at night and on weekends: its silent days show what a real school device does. Both terms run on India time, starting at midnight."
               />
               <div className="mt-8">
                 <ProbeZeroRow />

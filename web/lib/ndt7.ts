@@ -89,7 +89,9 @@ function download(url: string, onProgress: (p: Ndt7Progress) => void) {
         const rtt = m.TCPInfo?.MinRTT ?? m.BBRInfo?.MinRTT;
         if (rtt) minRtt = Math.min(minRtt, rtt / 1000);
       } else {
-        bytes += (e.data as ArrayBuffer).byteLength;
+        // browsers give an ArrayBuffer; some server runtimes give a Blob or nothing (the server's count is used then)
+        const d = e.data as ArrayBuffer | Blob | null;
+        bytes += d ? ("byteLength" in d ? d.byteLength : d.size) : 0;
       }
       const secs = (performance.now() - t0) / 1000;
       onProgress({ phase: "download", mbps: (bytes * 8) / Math.max(secs, 0.1) / 1e6, elapsed: secs });
@@ -134,7 +136,9 @@ function upload(url: string, onProgress: (p: Ndt7Progress) => void) {
       if (done || ws.readyState !== WebSocket.OPEN) return;
       const secs = (performance.now() - t0) / 1000;
       if (secs >= PHASE_SECONDS) return finish();
-      while (ws.bufferedAmount < 7 * chunk.length && sent < 1e10) {
+      // Browsers report bufferedAmount; some server runtimes always say 0, so also cap what one tick may queue
+      // (8 messages per 25 ms tick, up to ~2.6 Gbit/s with 1 MiB messages) to keep the socket from flooding.
+      for (let n = 0; ws.bufferedAmount < 7 * chunk.length && n < 8; n++) {
         ws.send(chunk);
         sent += chunk.length;
         // grow messages as the link proves fast, as the ndt7 spec suggests

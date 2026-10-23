@@ -8,7 +8,21 @@ const FIBRES = ["#3d8bff", "#ff8a2a", "#2fcb74", "#c08a55", "#9fb2c2", "#a585ff"
 // each strand: L = lit day, C = cut, S = sleeve, P = part lit
 const ROWS = ["LLLLLLLLLPLLLLLL", "LLLLLLLCCCCC....", "LLLLLSSLLLLCCLLP", "PLPPLLPPCPLPPLPP", "LLLLDLLLLLLLLDDL", "LLLLLLLLLVLLLLLL"];
 
-export default function OG() {
+async function font(text: string): Promise<ArrayBuffer | null> {
+  try {
+    const css = await (
+      await fetch(`https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&text=${encodeURIComponent(text)}`)
+    ).text();
+    const url = css.match(/src: url\((.+?)\) format\('(opentype|truetype)'\)/)?.[1];
+    return url ? await (await fetch(url)).arrayBuffer() : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function OG() {
+  const title = "School internet, paid by the day it works.";
+  const data = await font(title + "Roll Call");
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#0c1a22", padding: "64px 72px", color: "#eaf2f0", fontFamily: "sans-serif" }}>
@@ -20,8 +34,8 @@ export default function OG() {
           </div>
           Roll Call
         </div>
-        <div style={{ display: "flex", fontSize: 76, fontWeight: 800, letterSpacing: -3, lineHeight: 1.02, marginTop: 40, maxWidth: 900 }}>
-          School internet, paid by the day it works.
+        <div style={{ display: "flex", fontSize: 80, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1.0, marginTop: 40, maxWidth: 960, fontFamily: data ? "Bricolage" : "sans-serif" }}>
+          {title}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: "auto" }}>
           {ROWS.map((r, i) => (
@@ -42,6 +56,6 @@ export default function OG() {
         </div>
       </div>
     ),
-    size,
+    { ...size, fonts: data ? [{ name: "Bricolage", data, weight: 800, style: "normal" }] : [] },
   );
 }

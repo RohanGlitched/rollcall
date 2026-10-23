@@ -166,6 +166,36 @@ export default function Why() {
             </p>
           </Block>
 
+          <Block title="Who gains what">
+            <div className="overflow-hidden rounded-2xl border border-line">
+              <table className="w-full text-left text-[15px]">
+                <tbody className="bg-sheet">
+                  {[
+                    ["Pupils and teachers", "A line that is fixed in days, not weeks, because every dead day costs the provider."],
+                    ["The headteacher", "A record of every outage the school can show anyone, without filing a complaint. The school holds the probe key and can declare holidays and floods before they count."],
+                    ["The provider", "Payment the same week for every day it delivers, from money it can see is locked, and a bond that only moves on rules it agreed to."],
+                    ["The funder", "Money back for every failed day, and a public register to report from instead of chasing invoices."],
+                    ["The auditor", "Every reading named by an M-Lab test id it can look up, and a challenge with a deposit when something looks wrong."],
+                  ].map(([who, what]) => (
+                    <tr key={who} className="border-t border-line align-top first:border-t-0">
+                      <th className="w-[34%] px-5 py-4 text-[16px] font-bold">{who}</th>
+                      <td className="px-5 py-4 leading-relaxed">{what}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Block>
+
+          <Block title="Consent and control for schools">
+            <ul className="list-disc space-y-2 pl-5">
+              <li>The school holds its probe key. Nobody else can sign its readings or close its days, and it can stop testing at any time.</li>
+              <li>Readings carry speeds, a time and a network number. The school’s address goes on chain only as a salted hash, and M-Lab’s own data policy, which every tester agrees to, covers the address in M-Lab’s archive.</li>
+              <li>No pupil or teacher data is involved: a probe measures the line, not the people using it.</li>
+              <li>The rules are a public contract. A school, a provider or a journalist can read exactly what triggers payment before anyone signs.</li>
+            </ul>
+          </Block>
+
           <Block title="A first pilot">
             <ol className="list-decimal space-y-2 pl-5">
               <li>One district, 20 to 50 schools that already have a fibre or wireless line and a computer that stays on during school hours.</li>

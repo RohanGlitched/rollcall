@@ -90,7 +90,7 @@ export function LiveRegister() {
             "Reading the register from the chain…"
           )}
         </p>
-        <p className="text-[13px] text-glass-muted">Six simulated schools on a fast clock: one school day lasts one hour. Every strand is read from the contract.</p>
+        <p className="text-[13px] text-glass-muted">Each strand is one school; each length of it is one school day. Six simulated schools on a fast clock (one day lasts an hour), read live from the contract.</p>
       </div>
       {sims.length ? (
         <Strands terms={sims} now={now} tone="duct" />

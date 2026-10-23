@@ -104,6 +104,7 @@ export function SiteFooter() {
                 ["/how", "How a school day is decided"],
                 ["/why", "Why pay by the working day"],
                 ["/verify", "Check it yourself"],
+                ["/afterbell", "Afterbell: the line after the bell"],
               ],
             },
             {

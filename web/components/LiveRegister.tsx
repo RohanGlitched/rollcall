@@ -99,8 +99,11 @@ export function LiveRegister() {
           {err ?? "Reading the register from the chain…"}
         </div>
       )}
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <StrandLegend />
+        <Link href="/replay" className="rounded-full border border-glass/25 px-4 py-2 text-[13.5px] font-semibold text-glass hover:border-glass/60">
+          Watch a whole term in 24 minutes
+        </Link>
       </div>
       {err && sims.length > 0 && <p className="mt-3 text-[13px] text-[#ff7a70]">Live updates paused: {err}</p>}
     </div>

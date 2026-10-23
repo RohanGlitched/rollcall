@@ -102,14 +102,17 @@ export const SIM_SCHOOLS: SimSchool[] = [
   },
 ];
 
-export const simByName = (name: string) => SIM_SCHOOLS.find((s) => s.name === name);
+export const REPLAY_PREFIX = "Replay: ";
+/** The simulated school a term belongs to, live or in a fast replay. */
+export const simByName = (name: string) => SIM_SCHOOLS.find((s) => s.name === name.replace(REPLAY_PREFIX, ""));
 
 export const REAL_PROBE_NAME = "Probe 0: a cloud server in India";
 export const SIM_LABEL = "simulated";
 export const TRIAL_PREFIX = "Visitor school";
 
-export type TermKind = "sim" | "real" | "trial" | "other";
+export type TermKind = "sim" | "real" | "trial" | "replay" | "other";
 export function kindOf(name: string): TermKind {
+  if (name.startsWith(REPLAY_PREFIX)) return "replay";
   if (simByName(name)) return "sim";
   if (name === REAL_PROBE_NAME || /^Probe \d+: /.test(name)) return "real";
   if (name.startsWith(TRIAL_PREFIX)) return "trial";

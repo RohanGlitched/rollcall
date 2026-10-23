@@ -37,6 +37,7 @@ const NAV = [
   { href: "/#register", label: "Register" },
   { href: "/how", label: "How it works" },
   { href: "/why", label: "Why" },
+  { href: "/open", label: "Open a term" },
   { href: "/verify", label: "Verify" },
 ];
 
@@ -91,6 +92,8 @@ export function SiteFooter() {
               h: "Use it",
               l: [
                 ["/test", "Be the school for three minutes"],
+                ["/open", "Open a term for a real school"],
+                ["/probe", "Probe kit for schools"],
                 ["/#register", "The live register"],
                 ["/terms", "Every term on chain"],
               ],

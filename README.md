@@ -18,6 +18,15 @@ Built for **Web3 for Social Good 2026** (Singapore Management University, GSR Fo
 
 ---
 
+## Use it for a real school
+
+Everything the demo does also works with your own wallets on Base Sepolia:
+
+1. **The school** opens [the probe kit](https://rollcall-schools.vercel.app/probe) on any computer that stays on (lab PC, office laptop, Raspberry Pi). The kit makes a probe key, tests once in each part of the school day, retries every 15 minutes until a test passes, and signs **offline reports** when the line is down, sent when it comes back.
+2. **The funder** opens [a term](https://rollcall-schools.vercel.app/open) for that probe address: the provider, the arbiter, the provider’s network, what a working day means, the money. Test dollars come from a built-in faucet.
+3. **The provider** accepts from its own wallet on the term page, which also lets the funder challenge or end the term and the arbiter decide challenges.
+4. Every term has a printable **statement** and a **CSV** of its register: in *register mode* a treasury that cannot hold stablecoins pays from the statement in its own currency.
+
 ## Why
 
 India’s auditor (CAG Report No. 19 of 2026, performance audit of BharatNet) found the village fibre network **marked service ready in 96.7% of 226,000 village councils, but operational in only 33.2% of those**. Fibre faults took **17 days** on average to restore and caused 48% of downtime ([The Policy Edge’s summary](https://www.policyedge.in/p/bharatnet-faces-major-operational-gaps-despite-near-complete-rural-fibre-coverage)). Where a private operator ran the line under a maintenance contract, 90.1% worked; where a central public-sector company did, 10.7% did.

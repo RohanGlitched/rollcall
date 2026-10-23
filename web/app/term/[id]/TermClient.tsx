@@ -6,6 +6,7 @@ import { Strands, StrandLegend } from "@/components/Strands";
 import { usd, mbps, ago } from "@/lib/days";
 import { txUrl, addrUrl, EXPLORER, ROLLCALL } from "@/lib/chain";
 import { simByName } from "@/lib/schools";
+import { RolePanel } from "./RolePanel";
 
 type Payload = { term: TermView; readings: ReadingView[] | null; events: DayEventView[] | null; at: number };
 
@@ -60,6 +61,15 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-3">
+        <a href={`/term/${term.id}/statement`} className="rounded-full bg-ink px-5 py-2.5 text-[14px] font-semibold text-sheet hover:bg-duct-2">
+          Statement for this term
+        </a>
+        <a href={`/api/term/${term.id}/csv`} className="rounded-full border border-line-strong px-5 py-2.5 text-[14px] font-semibold hover:border-ink">
+          Download the register (CSV)
+        </a>
+      </div>
+
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-rule bg-rule md:grid-cols-4">
         {[
           ["Locked at the start", usd(total.toString(), 0), "text-graphite"],
@@ -75,6 +85,14 @@ export function TermClient({ initial, id }: { initial: Payload | null; id: numbe
           </div>
         ))}
       </dl>
+
+      {term.kind !== "sim" && term.kind !== "trial" && (
+        <RolePanel
+          term={term}
+          now={now}
+          onDone={() => fetch(`/api/term/${id}`, { cache: "no-store" }).then((r) => r.json()).then((j) => j.term && setData(j))}
+        />
+      )}
 
       <div className="grid gap-10 lg:grid-cols-2">
         <section>

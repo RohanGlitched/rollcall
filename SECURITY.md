@@ -35,7 +35,9 @@ Roll Call moves money on measurements. This page lists who is trusted with what,
 | Provider walks away | absent days accumulate strikes; the funder ends the term and takes unserved days plus a slice of the bond, but never a day with a pass | `test_terminate_after_strike_limit_returns_unserved_days`, `test_terminate_waits_until_earned_days_are_settled` |
 | Money created or stranded by an odd sequence | conservation fuzz: 500 random terms with random readings, networks, closures and challenges | `testFuzz_money_is_conserved` |
 
-## Left to the funder
+## Left to the funder, and to the provider
+
+- **A school that colludes with the funder** can withhold passing tests and send offline reports instead, turning working days into absent ones. The provider’s own monitoring and M-Lab’s archive (which would show no tests from the school while its line carried traffic) are its evidence; in this design the provider takes that to the arbiter or regulator off chain. A provider-side challenge is a natural next rule.
 
 - **A probe edits speeds before signing.** Speeds come from M-Lab’s server-side counters, but the probe relays them. M-Lab’s public archive holds the server’s own record for every test id; a funder who finds a mismatch challenges the day. The demo’s “Barmer” school shows this path end to end.
 - **School and provider collude** by running tests from somewhere else on the same network. The network check passes. Site visits, the archive’s server location and the bond are the funder’s tools; a real deployment would add attesters who check location.

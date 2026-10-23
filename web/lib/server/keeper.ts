@@ -62,11 +62,12 @@ function plannedReading(school: SimSchool, t: TermView, day: number, k: number) 
   return { at, id, down: m.down, up: m.up, rtt: m.rtt, asn: script === "hotspot" ? HOTSPOT_ASN : school.asn };
 }
 
-async function runSchool(school: SimSchool, idx: number, latest: TermView | undefined, now: number, log: Log, mayOpen: boolean) {
+/** Does a school's closures and challenges, and returns the readings it owes (signed, not yet recorded). */
+async function runSchool(school: SimSchool, idx: number, latest: TermView | undefined, now: number, log: Log, mayOpen: boolean): Promise<Pending[]> {
   const probe = privateKeyToAccount(simProbeKey(idx));
   // open the next term when there is none or the last one ended
   if (!latest || latest.state.ended) {
-    if (!mayOpen) return;
+    if (!mayOpen) return [];
     let start = Math.ceil(now / SIM_DAY_SECONDS) * SIM_DAY_SECONDS;
     if (start - now < 120) start += SIM_DAY_SECONDS;
     const r = await openTerm({
@@ -87,11 +88,11 @@ async function runSchool(school: SimSchool, idx: number, latest: TermView | unde
       challengeDeposit: SIM_DEPOSIT,
     });
     log.push(`${school.key}: opened term ${r.termId} starting ${new Date(start * 1000).toISOString()}`);
-    return;
+    return [];
   }
   const t = latest.terms;
   const tid = latest.id;
-  if (now < t.start || latest.state.ended) return;
+  if (now < t.start || latest.state.ended) return [];
   const today = Math.min(Math.floor((now - t.start) / t.dayLength), t.numDays);
 
   // a "fake" day is challenged by the funder once it ends, and the arbiter upholds it
@@ -144,24 +145,25 @@ async function runSchool(school: SimSchool, idx: number, latest: TermView | unde
       due.push({ r, sig: "0x", asn: p.asn, id: p.id });
     }
   }
-  if (!due.length) return;
+  if (!due.length) return [];
   const used = await publicClient.multicall({
     contracts: due.map((p) => ({ address: ROLLCALL, abi: rollCallAbi, functionName: "testUsed", args: [p.r.testId] }) as const),
     allowFailure: false,
   });
   const fresh = due.filter((_, i) => !used[i]);
-  if (!fresh.length) return;
   for (const p of fresh) {
     p.sig = await probe.signTypedData({ domain: DOMAIN, types: READING_TYPES, primaryType: "Reading", message: p.r });
   }
-  await recordReadings(
-    fresh.map((p) => p.r),
-    fresh.map((p) => p.sig),
-    fresh.map((p) => p.asn),
-    fresh.map((p) => p.id),
-  );
-  log.push(`${school.key}: recorded ${fresh.length} reading${fresh.length > 1 ? "s" : ""}`);
+  return fresh;
 }
+
+const record = (b: Pending[]) =>
+  recordReadings(
+    b.map((p) => p.r),
+    b.map((p) => p.sig),
+    b.map((p) => p.asn),
+    b.map((p) => p.id),
+  );
 
 async function settleTerm(term: TermView, now: number, log: Log) {
   if (!term.state.accepted || term.state.ended) return;
@@ -193,13 +195,32 @@ export async function keeperTick(opts: { sims?: boolean } = {}) {
   const byId = new Map(terms.map((t) => [t.id, t]));
 
   if (opts.sims !== false) {
+    const owed: { key: string; readings: Pending[] }[] = [];
     for (let i = 0; i < SIM_SCHOOLS.length; i++) {
       const s = SIM_SCHOOLS[i];
       const id = latestByName.get(s.name);
       try {
-        await runSchool(s, i, id ? byId.get(id) : undefined, now, log, mayOpen);
+        const r = await runSchool(s, i, id ? byId.get(id) : undefined, now, log, mayOpen);
+        if (r.length) owed.push({ key: s.key, readings: r });
       } catch (e) {
         errors.push(`${s.key}: ${plainError(e)}`);
+      }
+    }
+    // one transaction for every school's readings keeps the gas low; if the batch fails, each school alone
+    const all = owed.flatMap((o) => o.readings);
+    if (all.length) {
+      try {
+        await record(all);
+        log.push(`recorded ${all.length} simulated reading${all.length > 1 ? "s" : ""} in one batch`);
+      } catch {
+        for (const o of owed) {
+          try {
+            await record(o.readings);
+            log.push(`${o.key}: recorded ${o.readings.length}`);
+          } catch (e) {
+            errors.push(`${o.key} readings: ${plainError(e)}`);
+          }
+        }
       }
     }
   }

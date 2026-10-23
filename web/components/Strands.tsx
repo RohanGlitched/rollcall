@@ -43,14 +43,22 @@ function describe(t: TermView, d: number, s: CellState): { title: string; body: 
     const paid = s.kind === "Present" ? rate : s.kind === "Partial" ? (rate * Math.min(passes, t.terms.required)) / t.terms.required : 0;
     return {
       title: `${title}: ${s.kind === "Partial" ? `paid ${partialGlyph(passes, t.terms.required)}` : s.kind}`,
-      body: `${MARK_WORDS[s.kind]}. ${readings ? `${passes} of ${readings} tests passed. ` : ""}${paid.toFixed(2)} tUSD paid, ${(rate - paid).toFixed(2)} returned.`,
+      body: `${MARK_WORDS[s.kind]}. ${readings ? `${t.terms.required > 1 ? `${passes} of ${t.terms.required} parts of the day passed` : passes ? "A test passed" : "No test passed"} (${readings} reading${readings === 1 ? "" : "s"}). ` : ""}${paid.toFixed(2)} tUSD paid, ${(rate - paid).toFixed(2)} returned.`,
     };
   }
-  if (s.kind === "today") return { title: `${title}: in progress`, body: s.closed ? "Closed by the school." : `${s.readings} test${s.readings === 1 ? "" : "s"} so far, ${s.passes} passing. Needs ${t.terms.required} for full pay.` };
+  if (s.kind === "today")
+    return {
+      title: `${title}: in progress`,
+      body: s.closed
+        ? "Closed by the school."
+        : t.terms.required > 1
+          ? `${s.readings} reading${s.readings === 1 ? "" : "s"} so far; ${s.passes} of ${t.terms.required} parts of the day passed. Each part needs its own passing test for full pay.`
+          : `${s.readings} reading${s.readings === 1 ? "" : "s"} so far; ${s.passes ? "a test has passed" : "no test has passed yet"}.`,
+    };
   if (s.kind === "pending")
     return {
       title: `${title}: waiting to settle`,
-      body: s.challenged ? "Challenged by the funder; waiting for the arbiter." : `${s.passes} of ${s.readings} tests passed. Settles after the late and challenge windows.`,
+      body: s.challenged ? "Challenged by the funder; waiting for the arbiter." : `${s.passes} of ${t.terms.required} parts passed. Settles after the late and challenge windows.`,
     };
   if (s.kind === "ended") return { title: `${title}: returned`, body: "The funder ended the term early, so this day's money went back." };
   return { title: `${title}: not started`, body: `Pays ${rate.toFixed(2)} tUSD if the line works.` };
@@ -117,15 +125,8 @@ function Segment({
       );
       break;
     }
-    case "Absent":
-      body = (
-        <>
-          {unlit(x0, x1)}
-          {beads(s.readings, 0)}
-        </>
-      );
-      break;
-    case "Silent": {
+    case "Absent": {
+      // the line failed: the fibre is cut, with a mark for each failed report
       const a = x0 + len * 0.3;
       const b = x1 - len * 0.3;
       body = (
@@ -144,6 +145,14 @@ function Segment({
       );
       break;
     }
+    case "Silent":
+      // nothing reported: the device was off, so the strand is shown unplugged rather than cut
+      body = (
+        <g className={cls}>
+          <line x1={x0 + 2} x2={x1 - 2} y1={MID} y2={MID} stroke="#8fa5aa" strokeOpacity={0.35} strokeWidth={3} strokeDasharray="2 4" strokeLinecap="round" />
+        </g>
+      );
+      break;
     case "Closed":
       body = (
         <g className={cls}>
@@ -437,16 +446,6 @@ export function StrandLegend({ tone = "duct" }: { tone?: "duct" | "light" }) {
     ],
     [
       <>
-        <line x1={2} x2={38} y1={9} y2={9} stroke={dark} strokeWidth={6} />
-        <g stroke="#ff5a4f" strokeWidth={1.7}>
-          <line x1={17} y1={5.5} x2={24} y2={12.5} />
-          <line x1={17} y1={12.5} x2={24} y2={5.5} />
-        </g>
-      </>,
-      "dark: tests failed, refunded",
-    ],
-    [
-      <>
         <line x1={2} x2={13} y1={9} y2={9} stroke={dark} strokeWidth={6} />
         <line x1={27} x2={38} y1={9} y2={9} stroke={dark} strokeWidth={6} />
         <g stroke="#ff5a4f" strokeWidth={1.5}>
@@ -456,7 +455,11 @@ export function StrandLegend({ tone = "duct" }: { tone?: "duct" | "light" }) {
           <line x1={27} y1={12} x2={24} y2={15} />
         </g>
       </>,
-      "cut: no test arrived, refunded",
+      "cut: the line failed, refunded, strike",
+    ],
+    [
+      <line key="u" x1={3} x2={37} y1={9} y2={9} stroke="#8fa5aa" strokeOpacity={0.5} strokeWidth={3} strokeDasharray="2 4" strokeLinecap="round" />,
+      "faint: device off, no strike",
     ],
     [<rect x={2} y={2} width={36} height={14} rx={6} fill="#5d6a66" stroke="#aab5b0" />, "sleeved: school closed, no strike"],
     [

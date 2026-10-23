@@ -44,11 +44,11 @@ export function partialGlyph(passes: number, required: number) {
 }
 
 export const MARK_WORDS: Record<string, string> = {
-  Present: "Present: every required test passed, paid in full",
-  Partial: "Partial: some tests passed, paid pro rata",
-  Absent: "Absent: tests ran but failed, refunded to the funder",
-  Silent: "Silent: no test reached the ledger, refunded",
-  Closed: "Closed by the school (holiday, flood, power cut): refunded, no strike",
+  Present: "Present: a passing test in every part of the day, paid in full",
+  Partial: "Partial: passing tests in some parts of the day, paid that share",
+  Absent: "Absent: the probe reported but nothing passed, refunded with a strike",
+  Silent: "Silent: nothing reported (device off), refunded without a strike",
+  Closed: "Closed by the school before testing (holiday, flood): refunded, no strike",
   Voided: "Voided: a challenge was upheld, refunded and the provider's bond cut",
 };
 

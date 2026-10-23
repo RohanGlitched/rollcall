@@ -99,6 +99,15 @@ p {
   background: #cfe0ff;
 }
 
+/* grid and flex children may shrink below their content (code blocks, wide tables) */
+.grid > *,
+.flex > * {
+  min-width: 0;
+}
+pre {
+  max-width: 100%;
+}
+
 .tnum {
   font-variant-numeric: tabular-nums;
 }

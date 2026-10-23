@@ -79,7 +79,7 @@ export default async function Statement({ params }: { params: Promise<{ id: stri
           </header>
 
           <section className="grid gap-6 border-b border-line py-6 text-[14px] sm:grid-cols-2">
-            <table className="w-full">
+            <table className="w-full table-fixed">
               <tbody>
                 {[
                   ["Funder", t.funder],
@@ -90,7 +90,7 @@ export default async function Statement({ params }: { params: Promise<{ id: stri
                 ].map(([k, a]) => (
                   <tr key={k}>
                     <th className="w-32 py-1 pr-3 text-left font-medium text-muted">{k}</th>
-                    <td className="py-1 font-mono text-[12.5px]">
+                    <td className="truncate py-1 font-mono text-[12.5px]">
                       <a href={addrUrl(a)} className="hover:underline">
                         {a}
                       </a>
@@ -117,8 +117,8 @@ export default async function Statement({ params }: { params: Promise<{ id: stri
             </table>
           </section>
 
-          <section className="py-6">
-            <table className="w-full text-left text-[13.5px]">
+          <section className="thin-scroll overflow-x-auto py-6">
+            <table className="w-full min-w-[560px] text-left text-[13.5px]">
               <thead className="border-b border-ink text-[12px] text-muted">
                 <tr>
                   <th className="py-2 pr-3 font-semibold">Day</th>

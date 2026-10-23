@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+cache/
+broadcast/*/31337/
+keys/
+.env
+.env*.local
+*.log
+.vercel
+contracts/out/
+contracts/cache/

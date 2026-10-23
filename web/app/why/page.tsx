@@ -3,6 +3,8 @@ import Link from "next/link";
 import { SiteFooter, PageHero } from "@/components/Site";
 import { CountedNotChecked, StateStrands } from "@/components/Udise";
 import { FunderCalculator } from "@/components/Calculator";
+import { mainnetPrices } from "@/lib/server/prices";
+import { YEAR_GAS } from "@/lib/gas";
 
 export const metadata: Metadata = {
   title: "Why pay by the working day",
@@ -20,7 +22,11 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-export default function Why() {
+export const dynamic = "force-dynamic";
+
+export default async function Why() {
+  const px = await mainnetPrices();
+  const gasUsd = px ? (50 * YEAR_GAS * px.gasPriceGwei * 1e-9 * px.ethUsd) : null;
   const models = [
     { m: "Private-led", v: 90.11 },
     { m: "State-led", v: 39.8 },
@@ -206,6 +212,33 @@ export default function Why() {
               <li>Real terms use stablecoins on a public chain; the funder can convert to and from rupees through a regulated partner.</li>
               <li>After one term, compare days paid against the provider’s own uptime reports and against M-Lab’s archive.</li>
             </ol>
+          </Block>
+
+          <Block title="What a one-district pilot costs">
+            <p>Fifty schools for one school year, with every assumption written down.</p>
+            <div className="overflow-hidden rounded-2xl border border-line">
+              <table className="w-full text-left text-[15px]">
+                <tbody className="bg-sheet">
+                  {[
+                    ["Connectivity the funder already pays", "$15,000", "50 schools × $30 a month × 10 school months (assumed price)"],
+                    ["Gas on Base for every reading and settlement", gasUsd === null ? "a few hundred dollars at most" : `about $${Math.max(1, Math.round(gasUsd)).toLocaleString("en-US")}`, `${(50 * YEAR_GAS / 1e9).toFixed(1)} billion gas of execution at today’s Base price, plus a small data fee`],
+                    ["Three independent attesters", "$3,000", "an assumed $1,000 a year each, for checking networks and reviewing challenges"],
+                    ["Probes", "$0 to $3,000", "an existing school computer, or a $60 Raspberry Pi where there is none"],
+                    ["Money back if lines work 70% of school days", "$4,500", "the share of the $15,000 the funder never pays, at today’s prices"],
+                  ].map(([k, v, n]) => (
+                    <tr key={k} className="border-t border-line align-top first:border-t-0">
+                      <th className="px-5 py-3.5 text-[15px] font-semibold">{k}</th>
+                      <td className="px-5 py-3.5 text-right font-display text-[18px] font-bold whitespace-nowrap tnum">{v}</td>
+                      <td className="px-5 py-3.5 text-[13.5px] text-muted max-md:hidden">{n}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[14px] text-muted">
+              At these assumptions the money a funder keeps for days that did not work pays for the attesters and the gas, with some
+              left over. If providers ask for a higher price per working day, the calculator above shows what changes.
+            </p>
           </Block>
 
           <Block title="What has to be true">

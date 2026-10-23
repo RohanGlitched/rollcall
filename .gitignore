@@ -10,3 +10,6 @@ keys/
 .vercel
 contracts/out/
 contracts/cache/
+web/scripts/dist/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo

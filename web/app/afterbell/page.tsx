@@ -81,6 +81,15 @@ export default function Afterbell() {
         <Week />
       </PageHero>
       <main className="mx-auto max-w-[1280px] px-4 pt-6 sm:px-8">
+        <Link
+          href="/afterbell/dashboard"
+          className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/40 bg-amber-300/10 px-5 py-4 text-[15px] hover:bg-amber-300/15"
+        >
+          <span>
+            <b>Now live on Base Sepolia:</b> the split contract, committee-approved changes and the village dashboard.
+          </span>
+          <span className="rounded-full bg-amber-300 px-4 py-2 font-semibold text-black">Watch an evening on chain</span>
+        </Link>
         <Block title="Paid for, then left idle">
           <p>
             India’s auditor found that BharatNet, the fibre network that reaches every village council, uses only{" "}

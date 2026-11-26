@@ -1,6 +1,7 @@
 import "server-only";
 import { createPublicClient, decodeEventLog, encodeEventTopics, http, numberToHex, pad, type Hex, type Log } from "viem";
 import { rollCallAbi } from "../abi";
+import snapshot from "./logs-snapshot.json";
 import { CHAIN, DEPLOY_BLOCK, EXPLORER, MARKS, ROLLCALL, publicClient, type MarkName } from "../chain";
 
 // sepolia.base.org caps eth_getLogs at 200 blocks; publicnode allows a few thousand.
@@ -90,9 +91,16 @@ type RawLog = { topics: Hex[]; data: Hex; blockNumber: bigint; transactionHash: 
 // publicnode answers eth_getLogs over 50,000 blocks (~28 h on Base), so a cold start reads the whole
 // history in a few dozen parallel calls and every later read costs one call for the new blocks.
 const RANGE = 49_999n;
+// Public RPCs now prune history before block 50,000,000 (the contract was deployed at 49,112,129), so the index
+// starts from a snapshot of every log up to `snapshot.last` (scripts/logs-snapshot.mjs) and syncs only newer blocks.
 const index: { last: bigint; logs: RawLog[]; at: number; running: Promise<void> | null } = {
-  last: DEPLOY_BLOCK - 1n,
-  logs: [],
+  last: BigInt(snapshot.last) > DEPLOY_BLOCK ? BigInt(snapshot.last) : DEPLOY_BLOCK - 1n,
+  logs: (snapshot.logs as { topics: string[]; data: string; blockNumber: string; transactionHash: string }[]).map((l) => ({
+    topics: l.topics as Hex[],
+    data: l.data as Hex,
+    blockNumber: BigInt(l.blockNumber),
+    transactionHash: l.transactionHash as Hex,
+  })),
   at: 0,
   running: null,
 };

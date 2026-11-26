@@ -1,28 +1,169 @@
-<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Afterbell village dashboard</title>
-<style>:root{--bg:#0f1a17;--ink:#f3efe4;--dim:#b9b4a6;--acc:#f2b33d;--grn:#5cc78f;--blu:#7fb2ff;--card:#17261f}*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif;padding:4vh 5vw}
-h1{font-size:2.6rem;margin-bottom:.4rem}.k{color:var(--acc);font-weight:600}.dim{color:var(--dim)}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin:1.6rem 0}.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
-.c{background:var(--card);border-radius:14px;padding:1.2rem 1.3rem}.v{font-size:2.2rem;font-weight:800}.c p{color:var(--dim);margin-top:.3rem}a{color:var(--blu)}table{width:100%;border-collapse:collapse;font-size:.95rem}td{padding:.45rem .3rem;border-bottom:1px solid #24382f}
-.bar{display:flex;height:34px;border-radius:8px;overflow:hidden;margin-top:.8rem;font-weight:700;font-size:.9rem}.bar div{display:flex;align-items:center;justify-content:center;color:#0f1a17}
-@media(max-width:800px){.g4,.g2{grid-template-columns:1fr 1fr}}</style></head><body>
-<div class=k>Afterbell · village dashboard · Base Sepolia (testnet)</div>
-<h1>Demo School: last evening on the school line</h1>
-<p class=dim>Read from contract <a href="https://base-sepolia.blockscout.com/address/0x01be0435c2960fe09ef7e2762491d0e3f826a081" target=_blank>0x01be0435c2960fe09ef7e2762491d0e3f826a081</a>. Demo vouchers (ids "sim:…") settled in test dollars at 1 tUSD = Rs 84 (demo rate). Nothing here is real money.</p>
-<div class=g4>
-<div class=c><div class=v>8</div><p>vouchers sold, 16:00–22:00 IST</p></div>
-<div class=c><div class=v>12 h</div><p>of internet sold after the bell</p></div>
-<div class=c><div class="v" style="color:var(--acc)">₹120</div><p>paid in by villagers (UPI, via the payment partner)</p></div>
-<div class=c><div class="v" style="color:var(--grn)">₹63</div><p>to the school's connectivity fund</p></div>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Afterbell · village dashboard</title>
+<style>
+:root{--night:#070b1a;--ink:#f4f1e8;--dim:#9aa3c2;--school:#ffc94a;--op:#7fb2ff;--prov:#c08bff;--fund:#4fe3a1;--red:#ff5d6c;--card:rgba(255,255,255,.045);--line:rgba(255,255,255,.09)}
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif;background:radial-gradient(1200px 600px at 80% -10%,#1b2a6b 0%,transparent 60%),radial-gradient(900px 500px at 0% 0%,#2a1450 0%,transparent 55%),var(--night);padding:28px 4vw 40px;overflow-x:hidden}
+.stars{position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(1px 1px at 20% 30%,#fff8 50%,transparent 51%),radial-gradient(1px 1px at 70% 20%,#fff6 50%,transparent 51%),radial-gradient(1.5px 1.5px at 40% 70%,#fff5 50%,transparent 51%),radial-gradient(1px 1px at 85% 60%,#fff7 50%,transparent 51%),radial-gradient(1px 1px at 10% 85%,#fff5 50%,transparent 51%),radial-gradient(1px 1px at 55% 45%,#fff4 50%,transparent 51%);opacity:.8}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;position:relative}
+.eyebrow{color:var(--school);font-weight:600;font-size:15px}
+h1{font-size:clamp(30px,4vw,52px);line-height:1.05;margin:6px 0 8px;font-weight:800;letter-spacing:-.5px}
+.sub{color:var(--dim);font-size:15px;max-width:760px}
+.sub a,.tx a{color:var(--op)}
+.play{background:var(--school);color:#1a1300;border:0;border-radius:999px;padding:14px 26px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 0 40px #ffc94a55}
+.play:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.clock{font-variant-numeric:tabular-nums;font-size:44px;font-weight:800;text-align:right}
+.clock small{display:block;font-size:13px;color:var(--dim);font-weight:500}
+/* day strip */
+.strip{position:relative;margin:26px 0 8px;height:118px;border-radius:18px;background:var(--card);border:1px solid var(--line);overflow:hidden}
+.band{position:absolute;top:0;bottom:0}
+.band.dayb{background:linear-gradient(180deg,#ffd76a22,#ffd76a08);border-right:1px solid #ffd76a55}
+.band.nightb{background:linear-gradient(180deg,#5b7bff33,#5b7bff0a)}
+.band .lbl{position:absolute;top:10px;left:12px;font-size:13px;font-weight:700}
+.dayb .lbl{color:var(--school)}.nightb .lbl{color:#a9bbff}
+.hours{display:flex;justify-content:space-between;color:var(--dim);font-size:12px;padding:0 2px;font-variant-numeric:tabular-nums}
+.v{position:absolute;height:20px;border-radius:6px;background:linear-gradient(90deg,#7fb2ff,#c08bff);opacity:0;transform:scaleX(.2);transform-origin:left;transition:opacity .4s,transform .6s cubic-bezier(.2,.9,.2,1);box-shadow:0 0 18px #7fb2ff88}
+.v.on{opacity:1;transform:scaleX(1)}
+.cursor{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 16px #fff;left:0;opacity:0}
+.refuse{position:absolute;top:34px;padding:6px 10px;border-radius:8px;border:2px solid var(--red);color:var(--red);font-weight:800;font-size:12px;background:#ff5d6c18;transform:rotate(-4deg) scale(.6);opacity:0;transition:all .5s cubic-bezier(.2,1.4,.3,1)}
+.refuse.on{opacity:1;transform:rotate(-4deg) scale(1)}
+.lock{position:absolute;bottom:10px;left:12px;font-size:12px;color:var(--dim)}
+/* main grid */
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:18px;margin-top:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;position:relative}
+.card h3{font-size:15px;color:var(--dim);font-weight:600;margin-bottom:14px}
+.pots{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:end}
+.pot{text-align:center}
+.tank{position:relative;height:200px;border-radius:16px;border:1px solid var(--line);background:rgba(0,0,0,.25);overflow:hidden}
+.fill{position:absolute;left:0;right:0;bottom:0;height:0;transition:height .7s cubic-bezier(.2,.9,.2,1)}
+.fill::after{content:"";position:absolute;left:0;right:0;top:-6px;height:12px;border-radius:50%;background:inherit;filter:brightness(1.3)}
+.pot .amt{font-size:30px;font-weight:800;margin-top:10px;font-variant-numeric:tabular-nums}
+.pot .who{font-size:14px;color:var(--dim)}
+.pot .pct{font-size:13px;font-weight:700;margin-top:2px;transition:color .3s}
+.school .fill{background:linear-gradient(180deg,#4fe3a1,#1f9e6c)}.school .amt{color:var(--fund)}
+.op .fill{background:linear-gradient(180deg,#7fb2ff,#3d6fd6)}.op .amt{color:var(--op)}
+.prov .fill{background:linear-gradient(180deg,#c08bff,#7a45d1)}.prov .amt{color:var(--prov)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}
+.kpi{background:rgba(0,0,0,.22);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:13px;color:var(--dim)}
+.vote{margin-top:16px;border-radius:14px;padding:14px 16px;border:1px dashed var(--line);color:var(--dim);font-size:14px;transition:all .5s}
+.vote.on{border:1px solid var(--school);background:#ffc94a14;color:var(--ink);box-shadow:0 0 30px #ffc94a33}
+.sig{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}
+.sig i{width:14px;height:14px;border-radius:50%;border:2px solid var(--dim);display:inline-block;transition:all .3s}
+.sig i.ok{background:var(--school);border-color:var(--school);box-shadow:0 0 10px var(--school)}
+.feed{max-height:430px;overflow:auto}
+.tx{display:grid;grid-template-columns:62px 1fr auto;gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);opacity:0;transform:translateY(8px);transition:all .45s}
+.tx.on{opacity:1;transform:none}
+.tx .t{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px}
+.tx .what{font-size:14px}.tx .what small{display:block;color:var(--dim);font-size:12px}
+.tag{font-size:11px;font-weight:800;padding:3px 7px;border-radius:6px}
+.tag.sale{background:#7fb2ff22;color:var(--op)}.tag.gov{background:#ffc94a22;color:var(--school)}.tag.no{background:#ff5d6c22;color:var(--red)}
+.rules{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+.rule{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.rule b{display:block;margin-bottom:6px}.rule p{color:var(--dim);font-size:13.5px;line-height:1.45}
+.foot{margin-top:18px;color:var(--dim);font-size:12.5px;line-height:1.5}
+.pulse{animation:pulse .6s}
+@keyframes pulse{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+@media (max-width:900px){.grid,.rules{grid-template-columns:1fr}.clock{text-align:left}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style></head><body><div class="stars"></div>
+
+<header>
+  <div>
+    <div class="eyebrow">Afterbell · village dashboard · read from Base Sepolia</div>
+    <h1>Last evening, the school line paid its own bill.</h1>
+    <p class="sub">One school, one evening, replayed from the live contract <a href="https://base-sepolia.blockscout.com/address/0x01be0435c2960fe09ef7e2762491d0e3f826a081" target="_blank" rel="noopener">0x01be…a081</a>. Every voucher sale is split the moment it settles. Demo vouchers ("sim:") paid in test dollars at 1 tUSD = ₹84. No real money.</p>
+  </div>
+  <div style="display:flex;gap:22px;align-items:center">
+    <div class="clock" id="clock">16:00<small>Wed 25 Nov · IST</small></div>
+    <button class="play" id="play">▶ Play the evening</button>
+  </div>
+</header>
+
+<div class="strip" id="strip">
+  <div class="band dayb" style="left:0;width:0" id="dayb"><div class="lbl">School hours · school only</div></div>
+  <div class="band nightb" id="nightb"><div class="lbl">After the bell · village Wi-Fi</div></div>
+  <div class="lock">🔒 Public network off. The contract refuses any sale that starts here.</div>
+  <div class="refuse" id="refuse">10:30 sale REFUSED by contract</div>
+  <div class="cursor" id="cursor"></div>
 </div>
-<div class=g2>
-<div class=c><b>Where every rupee went</b>
-<div class=bar><div style="width:52.5%;background:var(--grn)">School ₹63</div><div style="width:28.7%;background:var(--blu)">Operator ₹34</div><div style="width:18.8%;background:var(--acc)">Provider ₹23</div></div>
-<p>The first 6 sales used 50/30/20. The committee then raised the school's share to <b>60/25/15</b> with 2 of 3 signatures, and the last 2 sales used the new split.</p></div>
-<div class=c><b>Committee rules, enforced by the contract</b>
-<p>• Changing the split, the parties or the hours needs <b>2 of 3</b> committee signatures. Outsiders are refused.<br>• Any one member can switch public sales <b>off</b>; switching back on needs 2.<br>• A sale that started in school hours is <b>refused</b>: The contract function &quot;recordSale&quot; reverted. (tried for 10:30 IST today).<br>• Each voucher settles once.</p></div>
+<div class="hours" id="hours"></div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Where every rupee went</h3>
+    <div class="pots">
+      <div class="pot school"><div class="tank"><div class="fill" id="f0"></div></div><div class="amt" id="a0">₹0</div><div class="who">School connectivity fund</div><div class="pct" id="p0">50%</div></div>
+      <div class="pot op"><div class="tank"><div class="fill" id="f1"></div></div><div class="amt" id="a1">₹0</div><div class="who">Local operator</div><div class="pct" id="p1">30%</div></div>
+      <div class="pot prov"><div class="tank"><div class="fill" id="f2"></div></div><div class="amt" id="a2">₹0</div><div class="who">Provider</div><div class="pct" id="p2">20%</div></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><b id="k0">0</b><span>vouchers sold</span></div>
+      <div class="kpi"><b id="k1">0 h</b><span>internet sold after the bell</span></div>
+      <div class="kpi"><b id="k2">₹0</b><span>paid in by villagers (UPI)</span></div>
+    </div>
+    <div class="vote" id="vote">School Management Committee · 2 of 3 signatures needed to change the split <span class="sig"><i id="s0"></i><i id="s1"></i><i id="s2"></i></span><div id="votemsg" style="margin-top:6px">No change proposed yet.</div></div>
+  </div>
+  <div class="card">
+    <h3>On-chain feed · click any row to open it on Blockscout</h3>
+    <div class="feed" id="feed"></div>
+  </div>
 </div>
-<div class=g2>
-<div class=c><b class=k>Day and night on one line</b><p><b style="color:var(--blu)">By day, Roll Call:</b> the provider is paid only for school days the school's own internet test passes. It's live at <a href="https://rollcall-schools.vercel.app" target=_blank>rollcall-schools.vercel.app</a> (see /verify).<br><b style="color:var(--acc)">By night, Afterbell:</b> the same line earns for the school, as above.</p></div>
-<div class=c><b>Still to build</b><p>A captive portal on a real school router that issues these vouchers. It needs a pilot school's router. Then the Roll Call + Afterbell view in one page for that school.</p></div>
+
+<div class="rules">
+  <div class="rule"><b>💸 Split on every sale</b><p>The school's fund, the operator and the provider are paid in the same transaction as the sale. Nobody holds the money.</p></div>
+  <div class="rule"><b>✍️ Only the committee changes it</b><p>Split, parties and hours change only with 2 of 3 committee signatures. Outsiders are refused.</p></div>
+  <div class="rule"><b>🔔 School hours always win</b><p>A sale that started in school hours is rejected by the contract, not by a promise.</p></div>
+  <div class="rule"><b>🛑 One-signature kill switch</b><p>Any one member can switch public sales off at once. Turning them back on takes two.</p></div>
 </div>
-<div class=c style="margin-top:1rem"><b>Every transaction</b><table><tr><td>deploy Afterbell</td><td><a href='https://base-sepolia.blockscout.com/tx/0x2da2978eb5049e1b12920466e8ea65a55dc729899cbd0235abae58352474a324' target=_blank>0x2da2978e…</a></td></tr><tr><td>partner mints 20 tUSD</td><td><a href='https://base-sepolia.blockscout.com/tx/0xeb196e379651bd370b6d88132479129f13c1e130011bf9c053961ae416720a0d' target=_blank>0xeb196e37…</a></td></tr><tr><td>partner approves Afterbell</td><td><a href='https://base-sepolia.blockscout.com/tx/0x84bf01cee5b0f85c5aa696c645464677cb8f65267aff56429257e3a9a29dab94' target=_blank>0x84bf01ce…</a></td></tr><tr><td>sale sim:nov25-001 Rs 10</td><td><a href='https://base-sepolia.blockscout.com/tx/0x46ceb73224609645c743e3e3a8568ef233d4a91f798c8d4a3fd1d23c858e0f4d' target=_blank>0x46ceb732…</a></td></tr><tr><td>sale sim:nov25-002 Rs 20</td><td><a href='https://base-sepolia.blockscout.com/tx/0x37e660ab6bff9c0a6cb50c08707b57d93802fb9cbf8e214fe523972b55e3ff48' target=_blank>0x37e660ab…</a></td></tr><tr><td>sale sim:nov25-003 Rs 10</td><td><a href='https://base-sepolia.blockscout.com/tx/0xa39e90330d503fe04a0e7bf7c9d96149f21e05e36169543f2aa967fe1c003737' target=_blank>0xa39e9033…</a></td></tr><tr><td>sale sim:nov25-004 Rs 10</td><td><a href='https://base-sepolia.blockscout.com/tx/0xcdd9464b5adf674c66d786605ee6d59f46955088feb02534c17a1c08dda1cb4a' target=_blank>0xcdd9464b…</a></td></tr><tr><td>sale sim:nov25-005 Rs 30</td><td><a href='https://base-sepolia.blockscout.com/tx/0xaef1468813805cf72c8222d0d6ec67fb3ef3c67b435a83a20a7bc5497c3ebc63' target=_blank>0xaef14688…</a></td></tr><tr><td>sale sim:nov25-006 Rs 10</td><td><a href='https://base-sepolia.blockscout.com/tx/0xfa0dd3a7bbdad591153b601abe99cbdf7bf1e13bbdbd6cdeaba71df12834e8ac' target=_blank>0xfa0dd3a7…</a></td></tr><tr><td>committee member 1 proposes 60/25/15</td><td><a href='https://base-sepolia.blockscout.com/tx/0x6290b16a493cdc742dec2e6928a58d09add84646a45ce8bc6aa9df1c51616491' target=_blank>0x6290b16a…</a></td></tr><tr><td>committee member 2 approves: split changes</td><td><a href='https://base-sepolia.blockscout.com/tx/0xfbfae07ab7bbe34c0f925943d9a516aab433f8de70d9d6d7a9d4cb4c84f2e7a4' target=_blank>0xfbfae07a…</a></td></tr><tr><td>sale sim:nov25-007 Rs 20</td><td><a href='https://base-sepolia.blockscout.com/tx/0x13c2964ac5d37d4deda1fa80a0f16a8b867e1933c297eaf8fce22b7fc5fdbb3d' target=_blank>0x13c2964a…</a></td></tr><tr><td>sale sim:nov25-008 Rs 10</td><td><a href='https://base-sepolia.blockscout.com/tx/0x125e56b8be049b6f4782b09841eda03e351a054b9cdd50b9671e39d7a8867a1a' target=_blank>0x125e56b8…</a></td></tr></table></div>
+<p class="foot">By day, <a style="color:var(--op)" href="/">Roll Call</a> pays the provider only for school days the school's own internet test passes. By night, Afterbell makes the same line earn for the school. Still to build with a pilot school: the captive portal on the school's router that issues these vouchers.</p>
+
+<script>
+const X="https://base-sepolia.blockscout.com/tx/";
+const ev=[
+ {t:"16:20",m:60,rs:10,h:"0x46ceb73224609645c743e3e3a8568ef233d4a91f798c8d4a3fd1d23c858e0f4d",id:"sim:nov25-001"},
+ {t:"16:45",m:120,rs:20,h:"0x37e660ab6bff9c0a6cb50c08707b57d93802fb9cbf8e214fe523972b55e3ff48",id:"sim:nov25-002"},
+ {t:"17:10",m:60,rs:10,h:"0xa39e90330d503fe04a0e7bf7c9d96149f21e05e36169543f2aa967fe1c003737",id:"sim:nov25-003"},
+ {t:"18:05",m:60,rs:10,h:"0xcdd9464b5adf674c66d786605ee6d59f46955088feb02534c17a1c08dda1cb4a",id:"sim:nov25-004"},
+ {t:"18:30",m:180,rs:30,h:"0xaef1468813805cf72c8222d0d6ec67fb3ef3c67b435a83a20a7bc5497c3ebc63",id:"sim:nov25-005"},
+ {t:"19:15",m:60,rs:10,h:"0xfa0dd3a7bbdad591153b601abe99cbdf7bf1e13bbdbd6cdeaba71df12834e8ac",id:"sim:nov25-006"},
+ {t:"19:35",gov:1,h:"0x6290b16a493cdc742dec2e6928a58d09add84646a45ce8bc6aa9df1c51616491"},
+ {t:"19:45",gov:2,h:"0xfbfae07ab7bbe34c0f925943d9a516aab433f8de70d9d6d7a9d4cb4c84f2e7a4"},
+ {t:"20:00",m:120,rs:20,h:"0x13c2964ac5d37d4deda1fa80a0f16a8b867e1933c297eaf8fce22b7fc5fdbb3d",id:"sim:nov25-007"},
+ {t:"20:40",m:60,rs:10,h:"0x125e56b8be049b6f4782b09841eda03e351a054b9cdd50b9671e39d7a8867a1a",id:"sim:nov25-008"},
+];
+const H0=8,H1=23,span=H1-H0;const pos=h=>((h-H0)/span*100);
+const toH=s=>{const[a,b]=s.split(":").map(Number);return a+b/60};
+const $=id=>document.getElementById(id);
+$("dayb").style.left=pos(9)+"%";$("dayb").style.width=(pos(16)-pos(9))+"%";
+$("nightb").style.left=pos(16)+"%";$("nightb").style.width=(pos(22)-pos(16))+"%";
+$("refuse").style.left=(pos(10.5)-1)+"%";
+document.querySelector(".lock").style.left=(pos(9)+0.8)+"%";
+$("hours").innerHTML=Array.from({length:span+1},(_,i)=>`<span>${String(H0+i).padStart(2,"0")}:00</span>`).join("");
+const strip=$("strip");let lane=0;
+ev.forEach(e=>{if(!e.m)return;const d=document.createElement("div");d.className="v";const s=toH(e.t);d.style.left=pos(s)+"%";d.style.width=(pos(s+e.m/60)-pos(s))+"%";d.style.top=(36+ (lane++%3)*24)+"px";strip.appendChild(d);e.el=d});
+let split=[50,30,20],tot=[0,0,0],n=0,mins=0,inr=0;const MAX=70;
+function fmt(x){return "₹"+(Math.round(x*10)/10).toLocaleString("en-IN",{maximumFractionDigits:1})}
+function draw(){tot.forEach((v,i)=>{$("f"+i).style.height=Math.min(100,v/MAX*100)+"%";$("a"+i).textContent=fmt(v)});$("k0").textContent=n;$("k1").textContent=(mins/60)+" h";$("k2").textContent=fmt(inr);split.forEach((p,i)=>$("p"+i).textContent=p+"%")}
+function feed(e,html,tag,cls){const r=document.createElement("a");r.className="tx";r.href=X+e.h;r.target="_blank";r.rel="noopener";r.style.color="inherit";r.style.textDecoration="none";r.innerHTML=`<span class="t">${e.t}</span><span class="what">${html}</span><span class="tag ${cls}">${tag}</span>`;$("feed").prepend(r);requestAnimationFrame(()=>r.classList.add("on"))}
+function fire(e){
+ if(e.m){const parts=split.map(p=>e.rs*p/100);parts.forEach((v,i)=>tot[i]+=v);n++;mins+=e.m;inr+=e.rs;e.el&&e.el.classList.add("on");
+  ["a0","a1","a2"].forEach(id=>{$(id).classList.remove("pulse");void $(id).offsetWidth;$(id).classList.add("pulse")});
+  feed(e,`${e.m/60} h voucher · ₹${e.rs}<small>${e.id} → school ${fmt(parts[0])} · operator ${fmt(parts[1])} · provider ${fmt(parts[2])}</small>`,"SALE","sale")}
+ else if(e.gov===1){$("vote").classList.add("on");$("s0").classList.add("ok");$("votemsg").innerHTML="<b>Member 1 proposes</b>: raise the school's share to 60 / 25 / 15. 1 of 2 signatures.";feed(e,"Committee member 1 proposes 60 / 25 / 15<small>one signature is not enough</small>","VOTE","gov")}
+ else if(e.gov===2){$("s1").classList.add("ok");$("votemsg").innerHTML="<b>Member 2 signs. Split changed on chain.</b> Every sale from now on pays the school 60%.";split=[60,25,15];["p0","p1","p2"].forEach(id=>{$(id).style.color="var(--school)"});feed(e,"Committee member 2 approves: split changed<small>2 of 3 signatures, enforced by the contract</small>","2 OF 3","gov")}
+ draw()}
+function reset(){tot=[0,0,0];n=mins=inr=0;split=[50,30,20];$("feed").innerHTML="";ev.forEach(e=>e.el&&e.el.classList.remove("on"));$("vote").classList.remove("on");["s0","s1","s2"].forEach(i=>$(i).classList.remove("ok"));$("votemsg").textContent="No change proposed yet.";["p0","p1","p2"].forEach(id=>$(id).style.color="");$("refuse").classList.remove("on");draw()}
+let raf=null;
+function play(){cancelAnimationFrame(raf);reset();const cur=$("cursor");cur.style.opacity=1;const DUR=14000,from=16,to=22;let t0=null,i=0;
+ const step=ts=>{if(!t0)t0=ts;const k=Math.min(1,(ts-t0)/DUR);const h=from+(to-from)*k;cur.style.left=pos(h)+"%";const hh=Math.floor(h),mm=Math.floor((h-hh)*60);$("clock").firstChild.nodeValue=String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0");
+  while(i<ev.length&&toH(ev[i].t)<=h){fire(ev[i]);i++}
+  if(k<1)raf=requestAnimationFrame(step);else{cur.style.opacity=0;$("clock").firstChild.nodeValue="22:00";setTimeout(()=>{$("refuse").classList.add("on");feed({t:"10:30",h:""},"Sale that started at 10:30 today<small>reverted: SchoolHours(). School hours always win.</small>","REFUSED","no");const last=$("feed").firstChild;last.removeAttribute("href");last.style.cursor="default"},500)}};
+ raf=requestAnimationFrame(step)}
+$("play").onclick=play;
+// show the final state immediately, so the page is complete even without pressing play
+(function fill(){ev.forEach(fire);$("refuse").classList.add("on");$("clock").firstChild.nodeValue="22:00"})();
+</script>
 </body></html>
